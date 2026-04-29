@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* C'est ici qu'on définit le thème dans la v4 ! */
+@theme {
+  --color-apple-white: #FFFFFF;
+  --color-apple-gray: #F5F5F7;
+  --color-apple-dark: #1D1D1F;
+  --color-apple-blue: #0066CC;
+  --color-apple-border: #D2D2D7;
+
+  --radius-apple: 18px;
+}
+
+@layer base {
+  body {
+    /* Lissage de police premium */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    
+    @apply bg-apple-white text-apple-dark;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+}
+@theme {
+  --color-admin-bg: #0f111a;
+  --color-admin-card: #161926;
+  --color-admin-sidebar: #111421;
+  --color-admin-accent: #6366f1; /* Violet/Bleu */
+  --color-admin-green: #10b981; /* Bouton Ajouter */
+  --color-admin-red: #ef4444;
+  --color-admin-border: #1f2335;
+}
+/* --- STYLE DES SCROLLBARS PAR GABRIELLA --- */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #4f46e5; /* Indigo */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6366f1;
+}
+
+/* Cache la barre mais permet de scroller sur Firefox */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
