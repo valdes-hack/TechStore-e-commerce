@@ -1,74 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, Minus, Plus, ShoppingBag, MapPin, Loader2, AlertCircle } from 'lucide-react';
+import React from 'react';
+import { X, Trash2, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
-import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import OrderService from '../../services/order.service';
-import AddressService from '../../services/address.service';
 import Button from '../common/Button';
 
 const CartDrawer = () => {
-    // 1. Accès aux cerveaux (Panier et Auth)
-    const { cart, isOpen, setIsOpen, removeItem, updateQty, refreshCart } = useCart();
-    const { isAuthenticated } = useAuth();
-    
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [userAddress, setUserAddress] = useState(null);
+    const { cart, isOpen, setIsOpen, removeItem, updateQty } = useCart();
     const navigate = useNavigate();
 
-    // Charger l'adresse par défaut si on est connecté et que le panier est ouvert
-    useEffect(() => {
-        if (isOpen && isAuthenticated) {
-            const loadAddr = async () => {
-                try {
-                    const res = await AddressService.getMyAddresses();
-                    if (res && res.data && res.data.length > 0) {
-                        setUserAddress(res.data[0]); 
-                    }
-                } catch (e) { console.error("Adresse introuvable."); }
-            };
-            loadAddr();
-        }
-    }, [isOpen, isAuthenticated]);
-
-    // --- LOGIQUE DE VALIDATION --- ✨
-    const handleCheckout = async () => {
-        if (!isAuthenticated) {
-            // alert("Bébé, connecte-toi d'abord pour passer commande ! 😊");
-            setIsOpen(false);
-            navigate('/login');
-            return;
-        }
-
-        if (!userAddress) {
-            alert("Il nous faut une adresse à Bafoussam (ou ailleurs) pour te livrer ! 🏠");
-            setIsOpen(false);
-            navigate('/profile');
-            return;
-        }
-
-        setIsProcessing(true);
-        try {
-            const payload = {
-                addressId: userAddress.id,
-                paymentMethod: "CASH_ON_DELIVERY"
-            };
-
-            const res = await OrderService.createOrder(payload);
-
-            if (res.status === 'success' || res.code === 201) {
-                alert("BRAVO ! Ta commande est en route. 🥂🚀");
-                setIsOpen(false);
-                await refreshCart(); // Vide le sac après l'achat
-                navigate('/profile');
-            }
-        } catch (err) {
-            const msg = err.response?.data?.message || "Erreur lors de la validation.";
-            alert("ECHEC : " + msg);
-        } finally {
-            setIsProcessing(false);
-        }
+    // Redirection vers la page de finalisation (Checkout)
+    const handleGoToCart = () => {
+        setIsOpen(false); // Ferme le tiroir
+        navigate('/checkout'); // Redirige vers la grande page panier/paiement
     };
 
     const formattedTotal = new Intl.NumberFormat('fr-FR').format(cart.totalAmount || 0) + " FCFA";
@@ -94,7 +38,7 @@ const CartDrawer = () => {
                         <div className="p-8 border-b flex justify-between items-center bg-white">
                             <div>
                                 <h2 className="text-2xl font-black italic tracking-tighter text-slate-900">Mon Panier.</h2>
-                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">{cart.items?.length || 0} Sélectionnés</p>
+                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">{cart.items?.length || 0} Articles</p>
                             </div>
                             <button 
                                 onClick={() => setIsOpen(false)}
@@ -104,12 +48,12 @@ const CartDrawer = () => {
                             </button>
                         </div>
 
-                        {/* LISTE DES ARTICLES - DYNAMIQUE ✨ */}
+                        {/* LISTE DES ARTICLES */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                             {cart.items?.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center opacity-20 italic">
                                     <ShoppingBag size={80} strokeWidth={1} />
-                                    <p className="mt-4 font-bold text-center uppercase tracking-widest text-xs">Ton sac est vide, Valdes.</p>
+                                    <p className="mt-4 font-bold text-center uppercase tracking-widest text-xs">Ton sac est vide.</p>
                                 </div>
                             ) : (
                                 cart.items.map((item) => (
@@ -125,7 +69,6 @@ const CartDrawer = () => {
                                             <p className="text-xs font-black text-indigo-500 mt-0.5">{item.unitPrice?.toLocaleString()} F</p>
                                             
                                             <div className="flex items-center justify-between mt-3">
-                                                {/* INCRÉMENT / DÉCRÉMENT ✨ */}
                                                 <div className="flex items-center space-x-3 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-sm">
                                                     <button 
                                                         onClick={() => updateQty(item.id, item.quantity - 1)}
@@ -142,7 +85,6 @@ const CartDrawer = () => {
                                                     </button>
                                                 </div>
 
-                                                {/* SUPPRIMER ✨ */}
                                                 <button 
                                                     onClick={() => removeItem(item.id)}
                                                     className="p-2 text-slate-300 hover:text-red-500 transition-colors"
@@ -156,41 +98,19 @@ const CartDrawer = () => {
                             )}
                         </div>
 
-                        {/* FOOTER - ADRESSE ET PAIEMENT */}
+                        {/* FOOTER */}
                         <div className="p-8 border-t border-gray-100 bg-white">
-                            {isAuthenticated ? (
-                                userAddress ? (
-                                    <div className="mb-6 flex items-center p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 animate-in slide-in-from-bottom-2">
-                                        <MapPin className="text-indigo-600 mr-3" size={20} />
-                                        <div className="overflow-hidden">
-                                            <p className="text-[9px] font-black uppercase text-indigo-400">Expédier vers : {userAddress.label}</p>
-                                            <p className="text-xs font-bold text-slate-700 truncate">{userAddress.street}</p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mb-6 flex items-center p-4 bg-amber-50 rounded-2xl border border-amber-100 text-amber-600">
-                                        <AlertCircle size={18} className="mr-2"/>
-                                        <p className="text-[10px] font-bold uppercase">Aucune adresse trouvée !</p>
-                                    </div>
-                                )
-                            ) : (
-                                <div className="mb-6 p-4 bg-slate-100 rounded-2xl text-center">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Connectez-vous pour acheter</p>
-                                </div>
-                            )}
-
                             <div className="flex justify-between items-center mb-8 px-2">
-                                <span className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Total</span>
+                                <span className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Sous-total</span>
                                 <span className="text-4xl font-black text-slate-900 tracking-tighter">{formattedTotal}</span>
                             </div>
 
                             <Button 
-                                onClick={handleCheckout} 
-                                loading={isProcessing}
+                                onClick={handleGoToCart} 
                                 disabled={cart.items?.length === 0}
                                 className="w-full py-5 text-base font-black shadow-2xl shadow-indigo-200 uppercase tracking-widest rounded-[1.5rem]"
                             >
-                                {isProcessing ? "Création de commande..." : "Valider mes achats"}
+                                Voir le panier
                             </Button>
                         </div>
                     </motion.aside>

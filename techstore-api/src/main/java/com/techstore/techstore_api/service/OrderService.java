@@ -11,5 +11,6 @@ public interface OrderService {
     List<OrderResponse> getMyOrders(String userEmail);
     OrderResponse getOrderDetails(Long orderId, String userEmail);
     List<OrderResponse> getAllOrdersForAdmin();
+    OrderResponse getOrderByToken(String token);
 OrderResponse updateOrderStatus(Long orderId, OrderStatus status);
 }

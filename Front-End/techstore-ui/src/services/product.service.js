@@ -60,7 +60,21 @@ const ProductService = {
             console.error("Erreur getCategories", error);
             return { status: 'error', data: [] }; 
         }
-    }
+    },
+    
+// Récupérer les avis d'un produit (p. 15 du Swagger)
+getProductReviews: async (productId) => {
+    const res = await api.get(`/products/${productId}/reviews`);
+    return res.data;
+},
+
+// Poster un nouvel avis (p. 31 du Swagger)
+// reviewData: { productId, orderId, rating, title, body }
+postReview: async (reviewData) => {
+    const res = await api.post('/reviews', reviewData);
+    return res.data;
+}
+
 };
 
 export default ProductService;

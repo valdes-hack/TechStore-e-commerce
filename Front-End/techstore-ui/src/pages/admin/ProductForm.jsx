@@ -1,242 +1,291 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Save, Image as ImageIcon, Plus, Trash2, Globe, FileUp } from 'lucide-react';
-import Button from '../../components/common/Button';
+import { X, Save, Image as ImageIcon, Trash2, FileUp, Loader2, Plus, Globe, HardDrive, Cpu } from 'lucide-react';
+import AdminService from '../../services/admin.service';
 import Input from '../../components/common/Input';
-import ProductService from '../../services/product.service';
 
-const ProductForm = ({ product, onClose, onSave, onDelete, theme }) => {
+const ProductForm = ({ product, onClose, onSave, theme }) => {
+    const isDark = theme === 'dark';
+    const [submitting, setSubmitting] = useState(false);
+    const [categories, setCategories] = useState([]);
+    const [suppliers, setSuppliers] = useState([]);
     
-    // 1. Initialisation intelligente (Transfère les données SQL vers le Formulaire)
-    const [formData, setFormData] = useState(() => {
+    // --- GESTION DES IMAGES ---
+    const [files, setFiles] = useState([]); // Fichiers binaires réels (upload local)
+    const [imageUrls, setImageUrls] = useState([]); // URLs (existantes ou saisies via lien)
+    const [previews, setPreviews] = useState([]); // Ce qui est affiché à l'écran (mélange Blob et HTTP)
+    const [tempUrl, setTempUrl] = useState(''); 
+    const [imageInputMode, setImageInputMode] = useState('file'); // 'file' ou 'url'
+
+    const [formData, setFormData] = useState({
+        id: null, name: '', slug: '', sku: '', brand: '',
+        basePrice: '', costPrice: '', categoryId: '',
+        defaultSupplierId: '', description: '', variants: []
+    });
+
+    // 1. Initialisation et synchronisation au chargement du produit (Modification)
+    useEffect(() => {
         if (product) {
-            return {
+            // On parse les attributs JSON vers les champs Couleur/Stockage/RAM pour l'UI
+            const parsedVariants = product.variants?.map(v => {
+                let attrs = { color: '', storage: '', ram: '' };
+                try {
+                    const obj = typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes;
+                    // On cherche les clés de ta BD (Couleur / Stockage / RAM)
+                    attrs.color = obj?.Couleur || obj?.couleur || '';
+                    attrs.storage = obj?.Stockage || obj?.stockage || '';
+                    attrs.ram = obj?.RAM || obj?.ram || '';
+                } catch (e) { console.error("Erreur parsing variantes", e); }
+                return { ...v, color: attrs.color, storage: attrs.storage, ram: attrs.ram };
+            }) || [];
+
+            setFormData({
                 id: product.id,
                 name: product.name || '',
                 slug: product.slug || '',
                 sku: product.sku || '',
                 brand: product.brand || '',
-                basePrice: product.basePrice || product.base_price || '',
-                stockQty: product.stockQty || product.stock_qty || '',
-                description: product.description || '',
+                basePrice: product.basePrice || '',
+                costPrice: product.costPrice || '',
                 categoryId: product.categoryId || product.category?.id || '',
-                imageUrls: product.images ? product.images.map(img => img.url) : []
-            };
+                defaultSupplierId: product.defaultSupplierId || '',
+                description: product.description || '',
+                variants: parsedVariants
+            });
+
+            // On sépare les images existantes pour ne pas les uploader à nouveau
+            const existing = product.images?.map(img => img.url) || [];
+            setImageUrls(existing);
+            setPreviews(existing);
         }
-        return {
-            name: '', slug: '', sku: '', brand: '', basePrice: '', stockQty: '', description: '',
-            categoryId: '', imageUrls: []
+        
+        const loadInitialData = async () => {
+            try {
+                const [catRes, suppRes] = await Promise.all([
+                    AdminService.getAllAdminCategories(),
+                    AdminService.getSuppliers()
+                ]);
+                setCategories(catRes.data || []);
+                setSuppliers(suppRes.data || []);
+            } catch (e) { console.error("Erreur chargement listes", e); }
         };
-    });
+        loadInitialData();
+    }, [product]);
 
-    const [categories, setCategories] = useState([]);
-    const [imageType, setImageType] = useState('link'); 
-    const [tempUrl, setTempUrl] = useState('');
+    // --- LOGIQUE DES IMAGES ---
+    const handleFileChange = (e) => {
+        const newFiles = Array.from(e.target.files);
+        if (newFiles.length === 0) return;
 
-    const isDark = theme === 'dark';
-
-    // Fonction Slugify
-    const slugify = (text) => {
-        return text.toString().toLowerCase().trim()
-            .replace(/\s+/g, '-')     
-            .replace(/[^\w-]+/g, '')  
-            .replace(/--+/g, '-');    
+        setFiles(prev => [...prev, ...newFiles]);
+        const newPreviews = newFiles.map(file => URL.createObjectURL(file));
+        setPreviews(prev => [...prev, ...newPreviews]);
+        e.target.value = null; // Reset input
     };
 
-    useEffect(() => {
-        const loadCats = async () => {
-            const res = await ProductService.getCategories();
-            if (res && res.data) setCategories(res.data);
-        };
-        loadCats();
-    }, []);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        if (name === "name") {
-            setFormData({ ...formData, name: value, slug: slugify(value) });
-        } else {
-            setFormData({ ...formData, [name]: value });
-        }
-    };
-
-    const addImageUrl = () => {
+    const addUrlImage = () => {
         if (tempUrl.trim()) {
-            setFormData({ ...formData, imageUrls: [...formData.imageUrls, tempUrl] });
+            setImageUrls(prev => [...prev, tempUrl]);
+            setPreviews(prev => [...prev, tempUrl]);
             setTempUrl('');
         }
     };
 
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData({ ...formData, imageUrls: [...formData.imageUrls, reader.result] });
-            };
-            reader.readAsDataURL(file);
+    const removeImage = (index) => {
+        const itemToRemove = previews[index];
+        setPreviews(prev => prev.filter((_, i) => i !== index));
+
+        if (imageUrls.includes(itemToRemove)) {
+            // C'était une URL existante
+            setImageUrls(prev => prev.filter(u => u !== itemToRemove));
+        } else {
+            // C'était un fichier local, on doit trouver son index dans le tableau 'files'
+            const localPreviews = previews.filter(p => !imageUrls.includes(p));
+            const fileIdx = localPreviews.indexOf(itemToRemove);
+            if (fileIdx !== -1) {
+                setFiles(prev => prev.filter((_, i) => i !== fileIdx));
+            }
+            URL.revokeObjectURL(itemToRemove);
         }
     };
 
-    const removeImage = (index) => {
-        const newList = formData.imageUrls.filter((_, i) => i !== index);
-        setFormData({ ...formData, imageUrls: newList });
+    // --- LOGIQUE DES VARIANTES ---
+    const addVariant = () => {
+        setFormData(prev => ({
+            ...prev,
+            variants: [...prev.variants, { skuVariant: '', price: prev.basePrice, color: '', storage: '', ram: '', stockQty: 0 }]
+        }));
     };
 
-    const handleSubmit = (e) => {
+    const updateVariant = (index, field, value) => {
+        const newVariants = [...formData.variants];
+        newVariants[index][field] = value;
+        setFormData({ ...formData, variants: newVariants });
+    };
+
+    // --- SOUMISSION ---
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const payload = {
-            ...formData,
-            basePrice: parseFloat(formData.basePrice),
-            stockQty: parseInt(formData.stockQty),
-            categoryId: parseInt(formData.categoryId)
-        };
-        onSave(payload);
+        setSubmitting(true);
+        try {
+            // Transformation des champs plats vers le JSON attendu par le Backend
+            const formattedVariants = formData.variants.map(v => ({
+                id: v.id || null,
+                skuVariant: v.skuVariant || `${formData.sku}-${v.color || 'V'}`,
+                price: parseFloat(v.price),
+                stockQty: parseInt(v.stockQty || 0),
+                attributes: JSON.stringify({ Couleur: v.color, Stockage: v.storage, RAM: v.ram })
+            }));
+
+            const payload = {
+                ...formData,
+                categoryId: parseInt(formData.categoryId),
+                defaultSupplierId: formData.defaultSupplierId ? parseInt(formData.defaultSupplierId) : null,
+                imageUrls: imageUrls, // URLs à conserver/ajouter
+                variants: formattedVariants
+            };
+            
+            await onSave(payload, files); // Envoi Multipart vers AdminProducts.jsx
+        } catch (error) { 
+            console.error(error); 
+        } finally { 
+            setSubmitting(false); 
+        }
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
-            <form 
-                onSubmit={handleSubmit} 
-                className={`w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-300 border ${
-                    isDark ? 'bg-[#111421] border-white/10 text-white' : 'bg-white border-gray-200 text-slate-800'
-                }`}
-            >
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[250] flex items-center justify-center p-4">
+            <form onSubmit={handleSubmit} className={`w-full max-w-6xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] border animate-in zoom-in-95 duration-300 ${isDark ? 'bg-[#111421] border-white/10 text-white' : 'bg-white border-gray-200 text-slate-800'}`}>
                 
                 {/* Header */}
-                <div className={`p-8 border-b flex justify-between items-center ${isDark ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50/50'}`}>
-                    <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-indigo-600 rounded-2xl text-white">
-                            <Plus size={24} />
-                        </div>
-                        <h2 className="text-3xl font-black italic tracking-tighter">
-                            {product ? 'Éditer' : 'Nouveau'} Produit.
+                <div className={`p-6 border-b flex justify-between items-center ${isDark ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50/50'}`}>
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-indigo-600 rounded-2xl text-white"><ImageIcon size={20}/></div>
+                        <h2 className="text-2xl font-black italic uppercase tracking-tighter">
+                            {product ? 'Éditer le Produit' : 'Nouveau Produit'}
                         </h2>
                     </div>
-                    
-                    <div className="flex items-center space-x-3">
-                        {product && (
-                            <button 
-                                type="button" 
-                                onClick={() => onDelete(product.id)}
-                                className="p-3 text-red-500 hover:bg-red-500/10 rounded-full transition-all"
-                            >
-                                <Trash2 size={24} />
-                            </button>
-                        )}
-                        <button type="button" onClick={onClose} className={`p-2 rounded-full transition-all ${isDark ? 'hover:bg-white/10 text-white' : 'hover:bg-black/5 text-slate-800'}`}>
-                            <X size={24}/>
-                        </button>
-                    </div>
+                    <button type="button" onClick={onClose} className={`p-2 rounded-full transition-all ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}><X /></button>
                 </div>
 
-                <div className="p-8 lg:p-12 overflow-y-auto grid grid-cols-1 lg:grid-cols-2 gap-12 custom-scrollbar">
+                <div className="p-8 overflow-y-auto custom-scrollbar grid grid-cols-1 lg:grid-cols-2 gap-10">
                     
-                    {/* SECTION INFOS (GAUCHE) */}
-                    <div className="space-y-8">
-                        <div>
-                            <label className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 block ${isDark ? 'opacity-40' : 'text-slate-400'}`}>Identité du produit</label>
-                            <div className="space-y-5">
-                                <Input label="Désignation" name="name" value={formData.name} onChange={handleChange} required placeholder="iPhone 15 Pro Max" theme={theme} />
-                                
-                                <div className={`px-4 py-3 rounded-2xl border flex justify-between items-center ${isDark ? 'bg-black/20 border-white/5' : 'bg-gray-100 border-transparent'}`}>
-                                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">URL Slug</span>
-                                    <code className="text-xs font-mono opacity-60">/{formData.slug || '...'}</code>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input label="Marque" name="brand" value={formData.brand} onChange={handleChange} required placeholder="Apple" theme={theme} />
-                                    <Input label="Référence SKU" name="sku" value={formData.sku} onChange={handleChange} required placeholder="REF-001" theme={theme} />
-                                </div>
+                    {/* SECTION GAUCHE : INFOS */}
+                    <div className="space-y-6">
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black uppercase text-indigo-500 tracking-widest ml-2">Identité</label>
+                            <Input required placeholder="Nom du produit" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-')})} theme={theme} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input required placeholder="Marque" value={formData.brand} onChange={(e) => setFormData({...formData, brand: e.target.value})} theme={theme} />
+                                <Input required placeholder="SKU Principal" value={formData.sku} onChange={(e) => setFormData({...formData, sku: e.target.value})} theme={theme} />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <Input label="Prix de vente (F)" name="basePrice" type="number" value={formData.basePrice} onChange={handleChange} required theme={theme} />
-                            <Input label="Unités en stock" name="stockQty" type="number" value={formData.stockQty} onChange={handleChange} required theme={theme} />
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 ml-2">Rayon</label>
+                                <select className={`w-full border p-4 rounded-2xl font-bold outline-none ${isDark ? 'bg-[#1a1c2e] border-white/10 text-white focus:border-indigo-500' : 'bg-gray-100 border-transparent text-slate-900'}`} value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} required>
+                                    <option value="">Choisir...</option>
+                                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 ml-2 text-amber-500">Fournisseur</label>
+                                <select className={`w-full border p-4 rounded-2xl font-bold outline-none ${isDark ? 'bg-[#1a1c2e] border-white/10 text-white focus:border-indigo-500' : 'bg-gray-100 border-transparent text-slate-900'}`} value={formData.defaultSupplierId} onChange={(e) => setFormData({...formData, defaultSupplierId: e.target.value})}>
+                                    <option value="">Par défaut...</option>
+                                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                            </div>
                         </div>
 
-                        <div>
-                            <label className={`text-[10px] font-black uppercase tracking-[0.2em] mb-3 block ${isDark ? 'opacity-40' : 'text-slate-400'}`}>Catégorisation</label>
-                            <select 
-                                name="categoryId" value={formData.categoryId} onChange={handleChange} required
-                                className={`w-full p-4 rounded-2xl outline-none font-bold text-sm border transition-all ${
-                                    isDark ? 'bg-black/20 border-white/5 focus:border-indigo-500 text-white' : 'bg-gray-100 border-transparent text-slate-900'
-                                }`}
-                            >
-                                <option value="">Choisir un rayon...</option>
-                                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <Input label="Prix Vente" type="number" required value={formData.basePrice} onChange={(e) => setFormData({...formData, basePrice: e.target.value})} theme={theme} />
+                            <Input label="Prix Achat" type="number" value={formData.costPrice} onChange={(e) => setFormData({...formData, costPrice: e.target.value})} theme={theme} />
                         </div>
-
-                        <textarea 
-                            name="description" value={formData.description} onChange={handleChange}
-                            placeholder="Racontez l'histoire du produit..." 
-                            className={`w-full p-5 rounded-[1.5rem] h-32 outline-none border transition-all text-sm font-medium ${
-                                isDark ? 'bg-black/20 border-white/5 focus:border-indigo-500 text-white' : 'bg-gray-100 border-transparent text-slate-900'
-                            }`}
-                        />
+                        <textarea placeholder="Description du produit..." className={`w-full border p-5 rounded-[2rem] h-24 outline-none transition-all ${isDark ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-gray-100 border-transparent text-slate-900'}`} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
                     </div>
 
-                    {/* SECTION VISUELS (DROITE) */}
+                    {/* SECTION DROITE : IMAGES & VARIANTES */}
                     <div className="space-y-8">
-                        <div>
-                            <label className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 block ${isDark ? 'opacity-40' : 'text-slate-400'}`}>Galerie Multimédia</label>
-                            <div className={`grid grid-cols-3 gap-4 min-h-[180px] p-5 rounded-[2.5rem] border-2 border-dashed overflow-y-auto max-h-[350px] custom-scrollbar ${
-                                isDark ? 'bg-black/20 border-white/10' : 'bg-gray-50 border-gray-200'
-                            }`}>
-                                {formData.imageUrls?.map((url, index) => (
-                                    <div key={index} className="relative group aspect-square bg-white rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-                                        <img src={url} className="w-full h-full object-contain p-2" alt="product-img" />
-                                        <button 
-                                            type="button" onClick={() => removeImage(index)}
-                                            className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all scale-75"
-                                        >
-                                            <X size={14} />
-                                        </button>
+                        {/* GALERIE IMAGES */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Images du produit</label>
+                                <div className="flex bg-white/5 p-1 rounded-xl gap-1 border border-white/5">
+                                    <button type="button" onClick={() => setImageInputMode('file')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${imageInputMode === 'file' ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}>FICHIER</button>
+                                    <button type="button" onClick={() => setImageInputMode('url')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${imageInputMode === 'url' ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}>URL</button>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 overflow-x-auto p-2 bg-black/40 rounded-2xl border border-white/5 min-h-[100px] custom-scrollbar">
+                                {previews.map((src, i) => (
+                                    <div key={i} className="relative w-16 h-16 shrink-0 rounded-xl overflow-hidden border border-white/20 group">
+                                        <img src={src} className="w-full h-full object-cover" alt="" />
+                                        <button type="button" onClick={() => removeImage(i)} className="absolute inset-0 bg-red-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14}/></button>
                                     </div>
                                 ))}
-                                {formData.imageUrls.length === 0 && (
-                                    <div className="col-span-3 flex flex-col items-center justify-center opacity-20 py-10">
-                                        <ImageIcon size={48} />
-                                        <p className="text-[10px] font-black mt-2">AUCUNE PHOTO</p>
-                                    </div>
+                                {imageInputMode === 'file' && (
+                                    <label className="w-16 h-16 shrink-0 border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center cursor-pointer hover:bg-indigo-500/10 transition-all">
+                                        <FileUp className="text-indigo-500" />
+                                        <input type="file" multiple onChange={handleFileChange} className="hidden" accept="image/*" />
+                                    </label>
                                 )}
                             </div>
+                            
+                            {imageInputMode === 'url' && (
+                                <div className="flex gap-2 animate-in slide-in-from-right-2">
+                                    <input value={tempUrl} onChange={e => setTempUrl(e.target.value)} placeholder="Coller une URL d'image..." className={`flex-1 border p-3 rounded-xl text-xs outline-none focus:border-indigo-500 ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-100 border-transparent text-slate-800'}`} />
+                                    <button type="button" onClick={addUrlImage} className="bg-indigo-600 text-white px-4 rounded-xl hover:bg-indigo-500 transition-all"><Plus/></button>
+                                </div>
+                            )}
                         </div>
 
-                        <div className={`p-1.5 flex rounded-2xl ${isDark ? 'bg-black/40' : 'bg-gray-100'}`}>
-                            <button type="button" onClick={() => setImageType('link')} className={`flex-1 py-3 text-xs font-black rounded-xl transition-all flex items-center justify-center ${imageType === 'link' ? (isDark ? 'bg-white/10 text-white' : 'bg-white shadow-sm text-indigo-600') : 'opacity-40'}`}>
-                                <Globe size={14} className="mr-2"/> LIEN WEB
-                            </button>
-                            <button type="button" onClick={() => setImageType('file')} className={`flex-1 py-3 text-xs font-black rounded-xl transition-all flex items-center justify-center ${imageType === 'file' ? (isDark ? 'bg-white/10 text-white' : 'bg-white shadow-sm text-indigo-600') : 'opacity-40'}`}>
-                                <FileUp size={14} className="mr-2"/> UPLOAD
-                            </button>
+                        {/* VARIANTES AVEC STOCKAGE & RAM */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Variantes (Stockage & RAM)</label>
+                                <button type="button" onClick={addVariant} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/20 active:scale-95">+ AJOUTER</button>
+                            </div>
+                            <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                {formData.variants.map((v, i) => (
+                                    <div key={i} className={`p-5 rounded-3xl border space-y-4 shadow-inner ${isDark ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-slate-100'}`}>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <span className="text-[8px] font-black uppercase opacity-40 ml-1">Couleur</span>
+                                                <input placeholder="Ex: Titane" className={`bg-transparent text-xs border-b w-full outline-none p-1 ${isDark ? 'text-white border-white/10 focus:border-indigo-500' : 'text-slate-800 border-slate-200'}`} value={v.color} onChange={e => updateVariant(i, 'color', e.target.value)} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[8px] font-black uppercase opacity-40 ml-1">Prix (CFA)</span>
+                                                <input type="number" placeholder="Prix" className={`bg-transparent text-xs font-black border-b w-full outline-none p-1 ${isDark ? 'text-emerald-400 border-white/10' : 'text-emerald-600 border-slate-200'}`} value={v.price} onChange={e => updateVariant(i, 'price', e.target.value)} />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 items-center">
+                                            <div className="flex items-center gap-2 bg-black/20 p-2 rounded-xl border border-white/5">
+                                                <HardDrive size={14} className="text-indigo-500"/>
+                                                <input placeholder="Stockage Go" className="bg-transparent text-xs text-white outline-none w-full" value={v.storage} onChange={e => updateVariant(i, 'storage', e.target.value)} />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1 flex items-center gap-2 bg-black/20 p-2 rounded-xl border border-white/5">
+                                                    <Cpu size={14} className="text-emerald-500"/>
+                                                    <input placeholder="RAM Go" className="bg-transparent text-xs text-white outline-none w-full" value={v.ram} onChange={e => updateVariant(i, 'ram', e.target.value)} />
+                                                </div>
+                                                <button type="button" onClick={() => setFormData({...formData, variants: formData.variants.filter((_, idx) => idx !== i)})} className="text-red-500 hover:scale-110 transition-transform ml-2"><Trash2 size={18} /></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {formData.variants.length === 0 && <p className="text-center py-6 text-xs opacity-20 italic">Aucune variante définie</p>}
+                            </div>
                         </div>
-
-                        {imageType === 'link' ? (
-                            <div className="flex space-x-2">
-                                <div className="flex-1"><Input placeholder="Coller le lien https://..." value={tempUrl} onChange={e => setTempUrl(e.target.value)} theme={theme} /></div>
-                                <button type="button" onClick={addImageUrl} className="bg-indigo-600 text-white px-6 rounded-2xl hover:bg-indigo-700 transition-all active:scale-95"><Plus size={20}/></button>
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                <input type="file" onChange={handleFileChange} className="hidden" id="admin-f-up" accept="image/*" />
-                                <label htmlFor="admin-f-up" className={`w-full p-5 border-2 border-dashed rounded-[1.5rem] flex justify-center items-center font-bold cursor-pointer transition-all ${
-                                    isDark ? 'bg-indigo-500/5 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/10' : 'bg-white border-indigo-200 text-indigo-600 hover:bg-indigo-50'
-                                }`}>
-                                    <Upload size={20} className="mr-3" /> Téléverser un fichier
-                                </label>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Footer Fixe */}
-                <div className={`p-8 border-t flex justify-end items-center space-x-6 ${isDark ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50/50'}`}>
-                    <button type="button" onClick={onClose} className="text-sm font-bold opacity-40 hover:opacity-100 transition-all uppercase tracking-widest">Fermer</button>
-                    <Button type="submit" className="px-16 shadow-2xl shadow-indigo-500/20 py-4">
-                        <Save size={20} className="mr-3" /> {product ? 'Mettre à jour' : 'Publier sur le store'}
-                    </Button>
+                {/* FOOTER */}
+                <div className={`p-8 border-t flex justify-end gap-6 ${isDark ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50/50'}`}>
+                    <button type="button" onClick={onClose} className="px-6 py-3 text-white/50 font-bold uppercase text-xs hover:text-white">Annuler</button>
+                    <button type="submit" disabled={submitting} className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black flex items-center gap-3 hover:bg-indigo-500 disabled:opacity-50 transition-all uppercase shadow-xl shadow-indigo-500/20 active:scale-95">
+                        {submitting ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />}
+                        {product ? 'METTRE À JOUR' : 'PUBLIER LE PRODUIT'}
+                    </button>
                 </div>
             </form>
         </div>

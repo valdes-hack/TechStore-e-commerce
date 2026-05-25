@@ -1,58 +1,89 @@
 import React, { useState } from 'react';
-import { X, Save, Layers } from 'lucide-react';
+import { X, Upload, Check } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import AdminService from '../../services/admin.service';
 
 const CategoryForm = ({ category, categories, onClose, onSave, theme }) => {
-    const isDark = theme === 'dark';
-    const [formData, setFormData] = useState(category || {
-        name: '', slug: '', iconUrl: '', parentId: null
-    });
+    const [name, setName] = useState(category?.name || '');
+    const [slug, setSlug] = useState(category?.slug || '');
+    const [parentId, setParentId] = useState(category?.parentId || '');
+    const [file, setFile] = useState(null);
+    const [loading, setLoading] = useState(false);
 
-    const slugify = (text) => text.toString().toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-');
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        if (name === "name") setFormData({ ...formData, name: value, slug: slugify(value) });
-        else setFormData({ ...formData, [name]: value });
+        try {
+            const formData = new FormData();
+            
+            // On prépare l'objet selon le schéma p. 58
+            const categoryData = {
+                name: name,
+                slug: slug,
+                parentId: parentId === "" ? null : parseInt(parentId)
+            };
+
+            // ✨ CLÉS SWAGGER (Page 3 et 7) : "category" et "file" ✨
+            formData.append('category', new Blob([JSON.stringify(categoryData)], {
+                type: 'application/json'
+            }));
+
+            if (file) {
+                formData.append('file', file);
+            }
+
+            let res;
+            if (category) {
+                res = await AdminService.updateCategory(category.id, formData);
+            } else {
+                res = await AdminService.createCategory(formData);
+            }
+
+            if (res.status === 'success' || res.code === 200 || res.code === 201) {
+                onSave(); 
+            }
+        } catch (err) {
+            console.error("Erreur API :", err.response?.data);
+            alert("Erreur : " + (err.response?.data?.message || "Vérifiez les champs"));
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-            <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} 
-                className={`w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden ${isDark ? 'bg-[#111421] text-white border border-white/10' : 'bg-white text-slate-800 border border-gray-100'}`}>
-                
-                <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/5">
-                    <h2 className="text-2xl font-black italic">Organiser le Store.</h2>
-                    <button type="button" onClick={onClose} className="opacity-40 hover:opacity-100 transition-all"><X size={24}/></button>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className={`w-full max-w-lg rounded-[3rem] p-10 shadow-2xl animate-in zoom-in-95 duration-300 ${theme === 'dark' ? 'bg-[#111421] text-white border border-white/5' : 'bg-white'}`}>
+                <div className="flex justify-between items-center mb-8">
+                    <h3 className="text-2xl font-black italic tracking-tighter uppercase">Configuration Rayon</h3>
+                    <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-all"><X size={20}/></button>
                 </div>
-
-                <div className="p-10 space-y-6">
-                    <Input label="NOM DE LA CATÉGORIE" name="name" value={formData.name} onChange={handleChange} required theme={theme} />
-                    <Input label="URL DE L'ICÔNE (PNG/SVG)" name="iconUrl" value={formData.iconUrl} onChange={handleChange} placeholder="https://cdn..." theme={theme} />
-
-                    <div>
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-3 block italic">RATTACHEMENT (PARENT)</label>
-                        <select 
-                            name="parentId"
-                            value={formData.parentId || ""}
-                            onChange={(e) => setFormData({...formData, parentId: e.target.value || null})}
-                            className={`w-full p-4 rounded-2xl font-bold outline-none border transition-all ${isDark ? 'bg-black/20 border-white/5 text-white' : 'bg-gray-100 text-slate-900'}`}
-                        >
-                            <option value="">-- Catégorie Racine (Principale) --</option>
-                            {categories.filter(c => c.id !== category?.id).map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
+                
+                <form onSubmit={handleSubmit} className="space-y-6 text-left">
+                    <Input label="NOM DU RAYON" value={name} onChange={e=>setName(e.target.value)} required theme={theme} />
+                    <Input label="URL SLUG" value={slug} onChange={e=>setSlug(e.target.value)} required theme={theme} />
+                    
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase ml-4 opacity-40 italic text-indigo-500">Rayon Parent (Optionnel)</label>
+                        <select value={parentId} onChange={e=>setParentId(e.target.value)} className={`w-full p-4 rounded-2xl border-none outline-none font-bold text-sm ${theme === 'dark' ? 'bg-white/5 text-white' : 'bg-slate-100 text-slate-800'}`}>
+                            <option value="">-- Aucun (Rayon Principal) --</option>
+                            {categories.filter(c => c.id !== category?.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
-                </div>
 
-                <div className="p-8 border-t border-white/5 bg-white/5">
-                    <Button type="submit" className="w-full py-4 shadow-xl shadow-indigo-500/20">
-                        <Save size={20} className="mr-2"/> Confirmer le rayon
-                    </Button>
-                </div>
-            </form>
+                    <label className={`flex flex-col items-center p-6 border-2 border-dashed border-white/10 rounded-[2rem] cursor-pointer hover:border-indigo-500/50 transition-all ${file ? 'border-indigo-500 bg-indigo-500/5' : ''}`}>
+                        <Upload className={`opacity-20 mb-2 ${file ? 'text-indigo-500 opacity-100' : ''}`}/>
+                        <span className="text-[10px] font-black uppercase opacity-40">{file ? file.name : "Sélectionner une icône"}</span>
+                        <input type="file" className="hidden" onChange={e=>setFile(e.target.files[0])} />
+                    </label>
+
+                    <div className="flex space-x-4">
+                        <button type="button" onClick={onClose} className={`w-1/4 py-5 rounded-2xl font-bold uppercase text-[10px] ${theme === 'dark' ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Annuler</button>
+                        <Button loading={loading} type="submit" className="w-3/4 py-5 text-lg font-black uppercase tracking-widest shadow-2xl shadow-indigo-500/20">Enregistrer</Button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 };

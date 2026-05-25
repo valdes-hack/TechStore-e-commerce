@@ -1,31 +1,44 @@
 import api from '../api/axiosConfig';
 
 const AuthService = {
-    // 1. Inscription : On envoie l'email, password, nom, etc.
+    /**
+     * Inscription (Gère le format JSON ou Multipart pour la photo)
+     */
     register: async (userData) => {
         try {
-            const response = await api.post('/auth/register', userData);
-            return response.data;
+            // Si userData est un FormData (cas du checkout), on laisse Axios gérer le Content-Type
+            const config = (userData instanceof FormData) 
+                ? { headers: { 'Content-Type': 'multipart/form-data' } }
+                : {};
+
+            const response = await api.post('auth/register', userData, config);
+            
+            // On retourne l'objet complet de la réponse du serveur (ApiResponse)
+            return response.data; 
         } catch (error) {
-            throw error.response?.data || "Erreur lors de l'inscription, bébé.";
+            console.error("Détail erreur register:", error.response?.data);
+            throw error.response?.data || "Erreur lors de l'inscription.";
         }
     },
 
-    // 2. Connexion : On envoie email et password
+    /**
+     * Connexion classique
+     */
     login: async (credentials) => {
         try {
-            const response = await api.post('/auth/login', credentials);
-            // La réponse contiendra sûrement { token, user }
+            const response = await api.post('auth/login', credentials);
             return response.data;
         } catch (error) {
-            throw error.response?.data || "Identifiants incorrects, mon cœur.";
+            throw error.response?.data || "Identifiants incorrects.";
         }
     },
 
-    // 3. Diagnostic : Vérifier le profil via le token (Tâche 1.2 du backend)
+    /**
+     * Vérification de la session actuelle
+     */
     getProfile: async () => {
         try {
-            const response = await api.get('/auth/check-me');
+            const response = await api.get('auth/me');
             return response.data;
         } catch (error) {
             throw error.response?.data;

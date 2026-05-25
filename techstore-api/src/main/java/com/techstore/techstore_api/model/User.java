@@ -14,7 +14,7 @@ import java.util.List;
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 @Builder
-@ToString(exclude = {"password", "addresses"}) // Empêche Lombok de boucler
+@ToString(exclude = {"password", "addresses"})
 public class User {
 
     @Id
@@ -28,32 +28,32 @@ public class User {
     @Column(name = "password_hash")
     private String password;
 
-    @Column(name = "first_name", nullable = false)
     private String firstName;
-
-    @Column(name = "last_name", nullable = false)
     private String lastName;
-
-    @Column(nullable = false)
     private String phone;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role = Role.CLIENT;
 
-    @Column(name = "oauth_provider")
     private String oauthProvider;
 
-    @Column(name = "loyalty_points")
+    @Builder.Default
     private Integer loyaltyPoints = 0;
 
-    @Column(name = "is_verified")
+    @Builder.Default
     private boolean isVerified = false;
 
-    @Column(name = "is_deleted")
+    @Builder.Default
     private boolean isDeleted = false;
 
-    // On ignore les adresses ici pour que Swagger ne crash pas en essayant de tout charger
+    // --- CHAMP CRUCIAL POUR LA COMPILATION ---
+    @Builder.Default
+    private boolean isGuest = false; 
+
+    private String profilePictureUrl; 
+
     @JsonIgnore
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<Address> addresses;
@@ -65,5 +65,4 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-    private String profilePictureUrl; // Pour stocker le lien de la photo
 }

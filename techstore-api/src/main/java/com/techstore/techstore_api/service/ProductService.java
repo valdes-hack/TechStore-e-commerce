@@ -2,6 +2,9 @@ package com.techstore.techstore_api.service;
 
 import com.techstore.techstore_api.dto.request.ProductRequest;
 import com.techstore.techstore_api.dto.response.ProductResponse;
+import com.techstore.techstore_api.dto.response.ProductVariantResponse;
+import com.techstore.techstore_api.dto.request.VariantRequest;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -20,5 +23,9 @@ public interface ProductService {
     ProductResponse getProductBySlug(String slug);
     ProductResponse createProduct(ProductRequest productRequest);
     ProductResponse updateProduct(Long id, ProductRequest productRequest);
+    // Dans ProductService.java
+ProductVariantResponse addVariant(Long productId, VariantRequest request);
+ProductVariantResponse updateVariant(Long variantId, VariantRequest request);
+void deleteVariant(Long variantId);
 void deleteProduct(Long id);
 }

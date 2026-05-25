@@ -2,8 +2,10 @@ package com.techstore.techstore_api.controller.admin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.techstore.techstore_api.dto.request.ProductRequest;
+import com.techstore.techstore_api.dto.request.VariantRequest;
 import com.techstore.techstore_api.dto.response.ApiResponse;
 import com.techstore.techstore_api.dto.response.ProductResponse;
+import com.techstore.techstore_api.dto.response.ProductVariantResponse;
 import com.techstore.techstore_api.service.FileStorageService;
 import com.techstore.techstore_api.service.ProductService;
 import jakarta.validation.Valid;
@@ -28,7 +30,7 @@ public class AdminProductController {
 
     private final ProductService productService;
     private final FileStorageService fileStorageService;
-    private final ObjectMapper objectMapper; // Pour convertir le texte JSON en objet Java
+    private final ObjectMapper objectMapper;
 
     /**
      * 1. LISTER TOUS LES PRODUITS (ADMIN)
@@ -42,7 +44,7 @@ public class AdminProductController {
         Page<ProductResponse> products = productService.getAllProducts(pageable); 
         
         return ResponseEntity.ok(ApiResponse.<Page<ProductResponse>>builder()
-                .status("success").code(200).message("Liste complète récupérée")
+                .status("success").code(200).message("Inventaire récupéré")
                 .timestamp(LocalDateTime.now()).data(products).build());
     }
 
@@ -53,13 +55,11 @@ public class AdminProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> getById(@PathVariable Long id) {
         ProductResponse response = productService.getProductById(id);
         return ResponseEntity.ok(ApiResponse.<ProductResponse>builder()
-                .status("success").code(200).message("Détail récupéré")
-                .timestamp(LocalDateTime.now()).data(response).build());
+                .status("success").code(200).data(response).build());
     }
 
     /**
-     * 3. CRÉER UN PRODUIT AVEC IMAGES (UPLOAD LOCAL)
-     * Reçoit le JSON sous forme de String ("product") et les fichiers ("files")
+     * 3. CRÉER UN PRODUIT (MULTIPART : JSON + FILES)
      */
     @PostMapping(consumes = { "multipart/form-data" })
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
@@ -67,55 +67,54 @@ public class AdminProductController {
             @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         
         try {
-            // 1. Conversion manuelle du String JSON en objet ProductRequest
             ProductRequest request = objectMapper.readValue(productJson, ProductRequest.class);
 
-            // 2. Enregistrement des fichiers sur le disque local
             if (files != null && !files.isEmpty()) {
                 List<String> imageUrls = files.stream()
-                        .map(file -> {
-                            String fileName = fileStorageService.storeFile(file);
-                            // Génère l'URL accessible via le navigateur
-                            return "http://localhost:8080/uploads/products/" + fileName;
-                        })
+                        .map(file -> "http://localhost:8080/uploads/products/" + fileStorageService.storeFile(file))
                         .collect(Collectors.toList());
                 request.setImageUrls(imageUrls);
             }
 
-            // 3. Appel du service pour enregistrer en base de données
             ProductResponse response = productService.createProduct(request);
-            
             return ResponseEntity.status(201).body(ApiResponse.<ProductResponse>builder()
-                    .status("success")
-                    .code(201)
-                    .message("Produit créé avec succès")
-                    .timestamp(LocalDateTime.now())
-                    .data(response)
-                    .build());
+                    .status("success").code(201).message("Produit créé").data(response).build());
 
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.status(500).body(ApiResponse.<ProductResponse>builder()
-                    .status("error")
-                    .code(500)
-                    .message("Erreur lors de la création : " + e.getMessage())
-                    .timestamp(LocalDateTime.now())
-                    .build());
+                    .status("error").code(500).message("Erreur création : " + e.getMessage()).build());
         }
     }
 
     /**
-     * 4. MODIFIER UN PRODUIT
+     * 4. MODIFIER UN PRODUIT (MULTIPART : JSON + FILES)
      */
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductResponse>> update(
-            @PathVariable Long id, 
-            @Valid @RequestBody ProductRequest request) {
+    @PutMapping(value = "/{id}", consumes = { "multipart/form-data" })
+    public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
+            @PathVariable Long id,
+            @RequestPart("product") String productJson, 
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         
-        ProductResponse response = productService.updateProduct(id, request);
-        return ResponseEntity.ok(ApiResponse.<ProductResponse>builder()
-                .status("success").code(200).message("Produit mis à jour")
-                .timestamp(LocalDateTime.now()).data(response).build());
+        try {
+            ProductRequest request = objectMapper.readValue(productJson, ProductRequest.class);
+
+            if (files != null && !files.isEmpty()) {
+                List<String> newUrls = files.stream()
+                        .map(file -> "http://localhost:8080/uploads/products/" + fileStorageService.storeFile(file))
+                        .collect(Collectors.toList());
+                
+                if (request.getImageUrls() == null) request.setImageUrls(new java.util.ArrayList<>());
+                request.getImageUrls().addAll(newUrls);
+            }
+
+            ProductResponse response = productService.updateProduct(id, request);
+            return ResponseEntity.ok(ApiResponse.<ProductResponse>builder()
+                    .status("success").code(200).message("Produit mis à jour").data(response).build());
+
+        } catch (Exception e) {
+            return ResponseEntity.status(409).body(ApiResponse.<ProductResponse>builder()
+                    .status("error").code(409).message("Erreur mise à jour : " + e.getMessage()).build());
+        }
     }
 
     /**
@@ -125,7 +124,29 @@ public class AdminProductController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         productService.deleteProduct(id);
         return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .status("success").code(200).message("Produit désactivé")
-                .timestamp(LocalDateTime.now()).build());
+                .status("success").code(200).message("Produit désactivé").build());
+    }
+
+    /**
+     * 6. AJOUTER UNE VARIANTE
+     */
+    @PostMapping("/{productId}/variants")
+    public ResponseEntity<ApiResponse<ProductVariantResponse>> addVariant(
+            @PathVariable Long productId,
+            @RequestBody VariantRequest request) {
+        
+        ProductVariantResponse response = productService.addVariant(productId, request);
+        return ResponseEntity.ok(ApiResponse.<ProductVariantResponse>builder()
+                .status("success").message("Variante ajoutée").data(response).build());
+    }
+
+    /**
+     * 7. SUPPRIMER UNE VARIANTE
+     */
+    @DeleteMapping("/variants/{variantId}")
+    public ResponseEntity<ApiResponse<Void>> deleteVariant(@PathVariable Long variantId) {
+        productService.deleteVariant(variantId);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .status("success").message("Variante supprimée").build());
     }
 }

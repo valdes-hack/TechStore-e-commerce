@@ -37,8 +37,8 @@ public class Address {
     private String region;
 
     @Column(nullable = false)
-    private String country = "Cameroun";
-
+@Builder.Default
+private String country = "Cameroun";
     @Column(nullable = false)
     private String phone;
 

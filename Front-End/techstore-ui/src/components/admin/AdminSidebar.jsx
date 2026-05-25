@@ -2,7 +2,7 @@ import React from 'react';
 import { 
     LayoutDashboard, Box, Users, ShoppingCart, 
     BarChart3, Settings, Sun, Moon, Zap, 
-    ChevronLeft, ChevronRight, X, Layers 
+    ChevronLeft, ChevronRight, X, Layers, Truck, PackagePlus 
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -14,11 +14,13 @@ const AdminSidebar = ({ width, setWidth, theme, toggleTheme, isMobileOpen, setIs
         setWidth(isCollapsed ? 260 : 80);
     };
 
-    // --- LISTE DES ONGLETS (Mis à jour avec Catégories ✨) ---
+    // --- LISTE COMPLÈTE DES ONGLETS (ORDONNÉE) ---
     const menuItems = [
         { icon: <LayoutDashboard size={22}/>, label: "Dashboard", path: "/admin" },
         { icon: <Box size={22}/>, label: "Produits", path: "/admin/products" },
-        { icon: <Layers size={22}/>, label: "Catégories", path: "/admin/categories" }, // AJOUTÉ ICI !
+        { icon: <PackagePlus size={22}/>, label: "Ravitaillement", path: "/admin/stock" },
+        { icon: <Layers size={22}/>, label: "Catégories", path: "/admin/categories" },
+        { icon: <Truck size={22}/>, label: "Fournisseurs", path: "/admin/suppliers" },
         { icon: <Users size={22}/>, label: "Utilisateurs", path: "/admin/users" },
         { icon: <ShoppingCart size={22}/>, label: "Commandes", path: "/admin/orders" },
         { icon: <BarChart3 size={22}/>, label: "Statistiques", path: "/admin/stats" },
@@ -33,7 +35,7 @@ const AdminSidebar = ({ width, setWidth, theme, toggleTheme, isMobileOpen, setIs
 
     return (
         <>
-            {/* Overlay pour mobile (Floute le fond quand la sidebar est ouverte) */}
+            {/* Overlay Mobile */}
             {isMobileOpen && (
                 <div 
                     onClick={() => setIsMobileOpen(false)} 
@@ -43,7 +45,7 @@ const AdminSidebar = ({ width, setWidth, theme, toggleTheme, isMobileOpen, setIs
 
             <aside style={{ width: `${width}px` }} className={sidebarClasses}>
                 
-                {/* Flèche de rétractation manuelle (Uniquement sur Desktop) */}
+                {/* Bouton Rétractation (Desktop) */}
                 <button 
                     onClick={toggleCollapse}
                     className="hidden lg:flex absolute -right-3 top-20 bg-[#6366f1] text-white rounded-full p-1 shadow-lg z-50 hover:scale-110 transition-transform"
@@ -51,7 +53,7 @@ const AdminSidebar = ({ width, setWidth, theme, toggleTheme, isMobileOpen, setIs
                     {isCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
                 </button>
 
-                {/* LOGO ADMINHUB */}
+                {/* LOGO */}
                 <div className={`p-6 flex items-center justify-between ${isCollapsed ? 'lg:justify-center' : 'space-x-3'}`}>
                     <div className="flex items-center space-x-3">
                         <div className="bg-[#6366f1] p-2 rounded-xl text-white shadow-lg shadow-indigo-500/20">
@@ -63,7 +65,6 @@ const AdminSidebar = ({ width, setWidth, theme, toggleTheme, isMobileOpen, setIs
                             </span>
                         )}
                     </div>
-                    {/* Bouton fermer sur mobile uniquement */}
                     <button onClick={() => setIsMobileOpen(false)} className="lg:hidden p-2 opacity-50"><X size={20}/></button>
                 </div>
 
@@ -88,7 +89,7 @@ const AdminSidebar = ({ width, setWidth, theme, toggleTheme, isMobileOpen, setIs
                     ))}
                 </nav>
 
-                {/* BAS DE SIDEBAR : THEME & USER */}
+                {/* FOOTER SIDEBAR */}
                 <div className={`p-4 border-t ${theme === 'dark' ? 'border-white/5' : 'border-gray-100'}`}>
                     <button 
                         onClick={toggleTheme} 
@@ -96,15 +97,14 @@ const AdminSidebar = ({ width, setWidth, theme, toggleTheme, isMobileOpen, setIs
                     >
                         {theme === 'dark' ? <Sun size={20} className="text-yellow-400"/> : <Moon size={20} className="text-indigo-600"/>}
                         {(!isCollapsed || isMobileOpen) && (
-                            <span className="text-sm font-bold">Mode {theme === 'dark' ? 'Clair' : 'Sombre'}</span>
+                            <span className="text-sm font-bold ml-3">Mode {theme === 'dark' ? 'Clair' : 'Sombre'}</span>
                         )}
                     </button>
                     
-                    {/* Identifiant Admin simplifié */}
                     <div className={`mt-4 p-3 rounded-2xl flex items-center ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'} ${isCollapsed && !isMobileOpen ? 'justify-center' : 'space-x-3'}`}>
                         <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xs">V</div>
                         {(!isCollapsed || isMobileOpen) && (
-                            <div className="overflow-hidden">
+                            <div className="overflow-hidden ml-3">
                                 <p className={`text-[10px] font-black truncate uppercase ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Valdes Admin</p>
                                 <p className="text-[9px] opacity-40 truncate">Propriétaire</p>
                             </div>
@@ -112,10 +112,10 @@ const AdminSidebar = ({ width, setWidth, theme, toggleTheme, isMobileOpen, setIs
                     </div>
                 </div>
 
-                {/* ZONE DE REDIMENSIONNEMENT (Invisible mais réactive) ✨ */}
+                {/* POIGNÉE DE REDIMENSIONNEMENT */}
                 <div 
-                    onMouseDown={() => {
-                        const onMove = (e) => setWidth(Math.max(80, Math.min(e.clientX, 350)));
+                    onMouseDown={(e) => {
+                        const onMove = (moveEvent) => setWidth(Math.max(80, Math.min(moveEvent.clientX, 350)));
                         const onUp = () => window.removeEventListener('mousemove', onMove);
                         window.addEventListener('mousemove', onMove);
                         window.addEventListener('mouseup', onUp);

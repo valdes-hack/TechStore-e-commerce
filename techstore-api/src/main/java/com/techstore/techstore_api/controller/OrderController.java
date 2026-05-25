@@ -25,23 +25,23 @@ public class OrderController {
      * Transforme le panier actuel en commande
      */
     @PostMapping
-    public ResponseEntity<ApiResponse<OrderResponse>> placeOrder(
-            @RequestBody OrderRequest request, 
-            Principal principal) {
-        
-        OrderResponse response = orderService.createOrder(request, principal.getName());
-        
-        return ResponseEntity.status(201).body(
-            ApiResponse.<OrderResponse>builder()
-                .status("success")
-                .code(201)
-                .message("Commande passée avec succès !")
-                .timestamp(LocalDateTime.now())
-                .data(response)
-                .build()
-        );
-    }
-
+public ResponseEntity<ApiResponse<OrderResponse>> placeOrder(
+        @RequestBody OrderRequest request, 
+        Principal principal) {
+    
+    String email = (principal != null) ? principal.getName() : null;
+    OrderResponse response = orderService.createOrder(request, email);
+    
+    return ResponseEntity.status(201).body(
+        ApiResponse.<OrderResponse>builder()
+            .status("success")
+            .code(201)
+            .message("Commande créée")
+            .timestamp(LocalDateTime.now())
+            .data(response)
+            .build()
+    );
+}
     /**
      * 2. VOIR MES COMMANDES
      * Liste l'historique des achats du client
@@ -79,4 +79,22 @@ public class OrderController {
                 .build()
         );
     }
+    /**
+ * SUIVRE UNE COMMANDE SANS COMPTE
+ * GET /api/v1/orders/track/A1B2C3D4
+ */
+@GetMapping("/track/{token}")
+public ResponseEntity<ApiResponse<OrderResponse>> trackOrder(@PathVariable String token) {
+    OrderResponse response = orderService.getOrderByToken(token);
+    
+    return ResponseEntity.ok(
+        ApiResponse.<OrderResponse>builder()
+            .status("success")
+            .code(200)
+            .message("Informations de suivi récupérées")
+            .timestamp(LocalDateTime.now())
+            .data(response)
+            .build()
+    );
+}
 }

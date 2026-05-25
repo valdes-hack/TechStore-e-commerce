@@ -18,6 +18,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,67 +32,71 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            // 1. Activation du CORS avec les réglages définis plus bas
-            .cors(Customizer.withDefaults())
-            
-            // 2. Désactivation du CSRF (pour API REST Stateless)
-            .csrf(AbstractHttpConfigurer::disable)
-            
-            // 3. Gestion de session sans état (JWT)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            
-            // 4. Configuration des routes et des accès
-            .authorizeHttpRequests(auth -> auth
-                // ACCÈS PUBLIC : SWAGGER & DOCS
-                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/favicon.ico", "/error").permitAll()
-                
-                // ACCÈS PUBLIC : AUTHENTIFICATION & PANIER (Important ✨)
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/api/v1/cart/**").permitAll()
-                
-                // ACCÈS PUBLIC : CATALOGUE (Français + Anglais)
-                .requestMatchers("/api/v1/products/**").permitAll()
-                .requestMatchers("/api/v1/produits/**").permitAll()
-                .requestMatchers("/api/v1/categories/**").permitAll()
-                
-                // ACCÈS PRIVÉ : ADMINISTRATION (Seulement pour les ADMIN)
-                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                
-                // TOUT LE RESTE nécessite une simple authentification
-                .anyRequest().authenticated()
-            );
-
-        // Ajout du filtre de sécurité avant de valider la requête
-        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        // 1. Activation du CORS (réglé dans corsConfigurationSource)
+        .cors(Customizer.withDefaults())
         
-        return http.build();
-    }
+        // 2. Désactivation du CSRF (pour API Stateless)
+        .csrf(AbstractHttpConfigurer::disable)
+        
+        // 3. Gestion de session sans état (JWT)
+        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        
+        // 4. Configuration des accès (L'ordre est CRUCIAL ✨)
+        .authorizeHttpRequests(auth -> auth
+            // A. ACCÈS PUBLIC : SWAGGER, DOCS, ERREURS & IMAGES ✨
+            .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/favicon.ico", "/error").permitAll()
+            // ✨ CETTE LIGNE AUTORISE L'AFFICHAGE DES PHOTOS (Produits, Profils, Catégories)
+            .requestMatchers("/uploads/**").permitAll() 
 
-   @Bean
-public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration configuration = new CorsConfiguration();
+            // B. ACCÈS PUBLIC : LOGIQUE MÉTIER (Indispensable pour le Guest Checkout)
+            .requestMatchers("/api/v1/auth/**").permitAll()
+            .requestMatchers(
+                "/api/v1/products/**", 
+                "/api/v1/categories/**", 
+                "/api/v1/shipping-zones/**", 
+                "/api/v1/orders/**", 
+                "/api/v1/cart/**"
+            ).permitAll()
+            
+            // C. ACCÈS PRIVÉ : ADRESSES & PROFIL (Nécessite d'être connecté)
+            .requestMatchers("/api/v1/addresses/**").authenticated()
+            .requestMatchers("/api/v1/users/me").authenticated()
+            
+            // D. ACCÈS PRIVÉ : ADMINISTRATION (Seulement pour les ADMIN)
+            .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
+            
+            // E. TOUT LE RESTE nécessite une authentification
+            .anyRequest().authenticated()
+        );
+
+    // Ajout du filtre JWT avant le filtre standard
+    http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
     
-    // On autorise ton Front-end
-    configuration.setAllowedOrigins(List.of("http://localhost:5173"));
-    
-    // On autorise toutes les méthodes
-    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    
-    // ✨ LE FIX RADICAL POUR LES HEADERS :
-    // On autorise l'étoile '*' pour les Headers pour que X-Session-Id passe quoi qu'il arrive !
-    configuration.setAllowedHeaders(List.of("*")); 
-    
-    // On expose aussi les headers pour que le Front puisse les lire si besoin
-    configuration.setExposedHeaders(List.of("X-Session-Id", "Authorization"));
-    
-    configuration.setAllowCredentials(true);
-    
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", configuration);
-    return source;
+    return http.build();
 }
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // Autorise le Front-end React
+        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        
+        // Autorise tous les Headers (dont X-Session-Id et Authorization)
+        configuration.setAllowedHeaders(List.of("*")); 
+        
+        // Expose les headers pour que React puisse les lire
+        configuration.setExposedHeaders(Arrays.asList("X-Session-Id", "Authorization"));
+        
+        configuration.setAllowCredentials(true);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {

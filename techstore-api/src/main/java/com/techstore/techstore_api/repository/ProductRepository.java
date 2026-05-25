@@ -17,27 +17,34 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     Optional<Product> findBySlug(String slug);
 
+    // ✨ AJOUTE CETTE LIGNE POUR RÉPARER L'ERREUR ✨
+    Optional<Product> findBySku(String sku);
+
     Page<Product> findByCategoryIdAndIsActiveTrue(Long categoryId, Pageable pageable);
 
     Page<Product> findByIsActiveTrue(Pageable pageable);
+
+    // Compter les produits en stock faible pour le dashboard
+    long countByStockQtyLessThanAndIsActiveTrue(Integer threshold);
 
     @Query(value = "SELECT * FROM products WHERE is_active = true AND MATCH(name, description, brand) AGAINST(?1 IN BOOLEAN MODE)", 
            countQuery = "SELECT count(*) FROM products WHERE is_active = true AND MATCH(name, description, brand) AGAINST(?1 IN BOOLEAN MODE)", 
            nativeQuery = true)
     Page<Product> searchProducts(String keyword, Pageable pageable);
 
-    /**
-     * APPEL DE LA PROCÉDURE STOCKÉE : deduct_stock
-     * On utilise une requête native pour gérer les paramètres de sortie (@p_success, @p_message) 
-     * directement côté MySQL sans bloquer Java.
-     */
-    /**
-     * APPEL SIMPLIFIÉ DE LA PROCÉDURE
-     */
     @Transactional
     @Modifying
     @Query(value = "CALL deduct_stock(:p_product_id, :p_variant_id, :p_quantity)", nativeQuery = true)
     void deductStock(
+        @Param("p_product_id") Long productId, 
+        @Param("p_variant_id") Long variantId, 
+        @Param("p_quantity") Integer quantity
+    );
+
+    @Transactional
+    @Modifying
+    @Query(value = "CALL add_stock(:p_product_id, :p_variant_id, :p_quantity)", nativeQuery = true)
+    void addStock(
         @Param("p_product_id") Long productId, 
         @Param("p_variant_id") Long variantId, 
         @Param("p_quantity") Integer quantity

@@ -19,9 +19,9 @@ public class ProductImage {
     @JoinColumn(name = "product_id", nullable = false)
     @JsonBackReference // Empêche de remonter vers le produit
     private Product product;
-
+@Column(nullable = false, columnDefinition = "TEXT")
+private String url;
     @Column(nullable = false, length = 500)
-    private String url;
     private String altText;
     private boolean isPrimary = false;
     private Integer sortOrder = 0;

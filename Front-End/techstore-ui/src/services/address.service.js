@@ -1,21 +1,21 @@
 import api from '../api/axiosConfig';
 
 const AddressService = {
-    // 1. Lister les adresses du client (GET /api/v1/addresses)
+    // 1. Lister les adresses du client
     getMyAddresses: async () => {
         try {
             const response = await api.get('addresses');
-            return response.data; // Renvoie { status, data: [...] }
+            return response.data; 
         } catch (error) {
             console.error("Erreur lecture adresses", error);
             throw error;
         }
     },
 
-    // 2. Ajouter une adresse (POST /api/v1/addresses)
-    addAddress: async (addressData) => {
+    // 2. Ajouter une adresse ✨ Ajout de l'argument config
+    addAddress: async (addressData, config = {}) => {
         try {
-            const response = await api.post('addresses', addressData);
+            const response = await api.post('addresses', addressData, config);
             return response.data;
         } catch (error) {
             console.error("Erreur création adresse", error);
@@ -23,7 +23,7 @@ const AddressService = {
         }
     },
 
-    // 3. Supprimer (DELETE /api/v1/addresses/{id})
+    // 3. Supprimer
     deleteAddress: async (id) => {
         const response = await api.delete(`addresses/${id}`);
         return response.data;

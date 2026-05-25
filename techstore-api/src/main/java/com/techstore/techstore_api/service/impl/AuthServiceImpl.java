@@ -15,12 +15,14 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
@@ -32,43 +34,44 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtils jwtUtils;
 
     /**
-     * INSCRIPTION D'UN NOUVEL UTILISATEUR (AVEC PHOTO)
+     * INSCRIPTION D'UN NOUVEL UTILISATEUR
+     * Génère un Token immédiatement après l'inscription pour le Frontend
      */
-    @Override
-    @Transactional
-    public ApiResponse<UserResponse> registerUser(RegisterRequest request) {
-        // 1. Vérifier si l'email existe déjà
-        if (userRepository.existsByEmail(request.getEmail())) {
-            return ApiResponse.<UserResponse>builder()
-                    .status("error")
-                    .code(400)
-                    .message("Erreur : Cet email est déjà utilisé.")
-                    .timestamp(LocalDateTime.now())
-                    .build();
-        }
+@Override
+@Transactional
+public ApiResponse<AuthResponse> registerUser(RegisterRequest request) {
+    // 1. Chercher si l'utilisateur existe déjà ✨
+    User user = userRepository.findByEmail(request.getEmail()).orElse(null);
 
-        // 2. Créer l'entité et hacher le mot de passe
-        User user = User.builder()
+    if (user == null) {
+        // 2. S'il n'existe pas, on le crée (Logique Invité)
+        user = User.builder()
                 .firstName(request.getFirstName())
-                .lastName(request.getLastName())
+                .lastName(request.getLastName() != null ? request.getLastName() : "Client")
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .profilePictureUrl(request.getProfilePictureUrl()) // AJOUT : Enregistre le lien de la photo
                 .role(Role.CLIENT)
+                .isGuest(true)
                 .isVerified(true)
                 .build();
-
-        User savedUser = userRepository.save(user);
-
-        return ApiResponse.<UserResponse>builder()
-                .status("success")
-                .code(201)
-                .message("Utilisateur créé avec succès !")
-                .timestamp(LocalDateTime.now())
-                .data(mapToUserResponse(savedUser))
-                .build();
+        user = userRepository.save(user);
     }
+
+    // 3. ✨ GÉNÉRATION DU TOKEN (Utilise la nouvelle méthode sécurisée) ✨
+    String jwt = jwtUtils.generateTokenFromUsername(user.getEmail());
+
+    // 4. Réponse
+    AuthResponse authResponse = new AuthResponse(jwt, mapToUserResponse(user));
+
+    return ApiResponse.<AuthResponse>builder()
+            .status("success")
+            .code(200)
+            .message(user.isGuest() ? "Utilisateur reconnu" : "Compte créé")
+            .timestamp(LocalDateTime.now())
+            .data(authResponse)
+            .build();
+}
 
     /**
      * CONNEXION (LOGIN)
@@ -76,20 +79,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public ApiResponse<AuthResponse> loginUser(LoginRequest request) {
         try {
-            // 1. Tentative d'authentification
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
 
-            // 2. Si succès, on met à jour le contexte de sécurité
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            // 3. Génération du Token JWT
             String jwt = jwtUtils.generateJwtToken(authentication);
 
-            // 4. Récupération des infos utilisateur
             User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé après authentification"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             AuthResponse authResponse = new AuthResponse(jwt, mapToUserResponse(user));
 
@@ -102,7 +100,6 @@ public class AuthServiceImpl implements AuthService {
                     .build();
 
         } catch (BadCredentialsException e) {
-            System.out.println("ERREUR LOGIN : Identifiants incorrects pour " + request.getEmail());
             return ApiResponse.<AuthResponse>builder()
                     .status("error")
                     .code(401)
@@ -110,20 +107,18 @@ public class AuthServiceImpl implements AuthService {
                     .timestamp(LocalDateTime.now())
                     .build();
         } catch (Exception e) {
-            System.out.println("ERREUR CRITIQUE LOGIN : " + e.getMessage());
             e.printStackTrace();
             return ApiResponse.<AuthResponse>builder()
                     .status("error")
                     .code(500)
-                    .message("Une erreur interne est survenue lors de la connexion.")
+                    .message("Erreur interne lors de la connexion.")
                     .timestamp(LocalDateTime.now())
                     .build();
         }
     }
 
     /**
-     * MÉTHODE PRIVÉE DE MAPPING (DTO)
-     * On inclut la photo de profil pour que React puisse l'afficher
+     * MAPPING DTO
      */
     private UserResponse mapToUserResponse(User user) {
         return UserResponse.builder()
@@ -133,7 +128,7 @@ public class AuthServiceImpl implements AuthService {
                 .lastName(user.getLastName())
                 .phone(user.getPhone())
                 .role(user.getRole().name())
-                .profilePictureUrl(user.getProfilePictureUrl()) // AJOUT : Renvoie le lien au Frontend
+                .profilePictureUrl(user.getProfilePictureUrl())
                 .isVerified(user.isVerified())
                 .createdAt(user.getCreatedAt())
                 .build();
