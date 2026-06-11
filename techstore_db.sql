@@ -737,6 +737,7 @@ CREATE TABLE IF NOT EXISTS `app_settings` (
   `contact_phone` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '+237 600 000 000',
   `contact_address` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Douala, Cameroun',
   `logo_url` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hero_image_url` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Paramètres de l\'application';
 

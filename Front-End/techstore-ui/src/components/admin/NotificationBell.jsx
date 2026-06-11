@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Info, AlertTriangle, Package, ShoppingBag } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AdminService from '../../services/admin.service';
 import { useTheme } from '../../context/ThemeContext';
 
 const NotificationBell = () => {
     const { theme } = useTheme();
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -44,6 +46,21 @@ const NotificationBell = () => {
         try {
             await AdminService.markAsRead(id);
             setNotifications(prev => prev.filter(n => n.id !== id));
+            setIsOpen(false);
+            navigate('/admin/history');
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleMarkAllAsRead = async () => {
+        try {
+            if (notifications.length > 0) {
+                await AdminService.markAllAsRead();
+                setNotifications([]);
+            }
+            setIsOpen(false);
+            navigate('/admin/history');
         } catch (e) {
             console.error(e);
         }
@@ -115,7 +132,12 @@ const NotificationBell = () => {
                         </div>
                         
                         <div className="p-4 bg-white/5 text-center border-t border-white/5">
-                            <button className="text-[10px] font-black uppercase text-indigo-500 hover:text-indigo-400 transition-colors tracking-widest">Tout l'historique</button>
+                            <button 
+                                onClick={handleMarkAllAsRead}
+                                className="text-[10px] font-black uppercase text-indigo-500 hover:text-indigo-400 transition-colors tracking-widest"
+                            >
+                                Tout l'historique
+                            </button>
                         </div>
                     </div>
                 )}
