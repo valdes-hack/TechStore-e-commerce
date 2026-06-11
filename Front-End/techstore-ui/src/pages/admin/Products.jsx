@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../../context/ThemeContext';
 import AdminLayout from '../../components/admin/AdminLayout';
 import AdminFilter from '../../components/admin/AdminFilter';
 import ProductService from '../../services/product.service';
@@ -8,6 +9,7 @@ import {
     Plus, Edit2, Trash2, Box, AlertTriangle, 
     Wallet, RefreshCw, ChevronRight, Truck
 } from 'lucide-react';
+import { getFullImageUrl } from '../../utils/imageUtils';
 
 const AdminProducts = () => {
     // 1. ÉTATS DES DONNÉES
@@ -16,7 +18,7 @@ const AdminProducts = () => {
     const [loading, setLoading] = useState(true);
     
     // 2. ÉTAT DU THÈME
-    const [theme, setTheme] = useState(() => localStorage.getItem('admin_hub_theme') || 'dark');
+    const { theme, toggleTheme } = useTheme();
     
     // 3. ÉTAT DES FILTRES
     const [filters, setFilters] = useState({
@@ -126,7 +128,7 @@ const AdminProducts = () => {
                 </header>
 
                 {/* STATS RESPONSIVE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                     <StatCard theme={theme} title="TOTAL" value={filteredList.length} sub="Catalogue" icon={<Box size={22}/>} color="#818cf8"/>
                     <StatCard theme={theme} title="VALEUR" value={(filteredList.reduce((a,b)=>a+(b.basePrice*(b.stockQty||0)),0)).toLocaleString()} unit="F" sub="Prix vente" icon={<Wallet size={22}/>} color="#fbbf24" />
                     <StatCard theme={theme} title="RUPTURE" value={filteredList.filter(x => x.stockQty <= 0).length} sub="Alertes stock" icon={<AlertTriangle size={22}/>} color="#f43f5e"/>
@@ -134,8 +136,8 @@ const AdminProducts = () => {
                 </div>
 
                 {/* TABLEAU AVEC SCROLLBAR */}
-                <div className={`flex-1 rounded-[2.5rem] border overflow-hidden flex flex-col ${isDark ? 'bg-[#161926] border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
-                    <div className="overflow-x-auto custom-scrollbar flex-1">
+                <div className={`w-full max-w-full rounded-[2.5rem] border flex flex-col ${isDark ? 'bg-[#161926] border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
+                    <div className="overflow-x-auto w-full custom-scrollbar rounded-[2.5rem]">
                         <table className="w-full text-left min-w-[1000px] border-collapse">
                             <thead className={`sticky top-0 z-20 ${isDark ? 'bg-[#1a1e2e]' : 'bg-slate-50'} text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                                 <tr>
@@ -156,9 +158,7 @@ const AdminProducts = () => {
                                             <div onClick={() => setImgIdxMap({...imgIdxMap, [p.id]: (imgIdxMap[p.id] + 1) % (p.images?.length || 1)})}
                                                 className="w-14 h-14 mx-auto bg-black/10 rounded-2xl p-1 relative border border-white/5 cursor-pointer overflow-hidden group-hover:scale-110 transition-transform">
                                                 <img 
-                                                    src={p.images?.[imgIdxMap[p.id]]?.url?.startsWith('http') 
-                                                        ? p.images[imgIdxMap[p.id]].url 
-                                                        : `http://localhost:8080/uploads/products/${p.images?.[imgIdxMap[p.id]]?.url}`} 
+                                                    src={getFullImageUrl(p.images?.[imgIdxMap[p.id]]?.url)} 
                                                     className="w-full h-full object-contain" 
                                                     alt={p.name} 
                                                 />
@@ -227,20 +227,20 @@ const AdminProducts = () => {
 const StatCard = ({ title, value, sub, icon, color, unit="", theme }) => {
     const isDark = theme === 'dark';
     return (
-        <div className={`p-6 rounded-[2.2rem] border transition-all shadow-xl flex flex-col justify-between ${isDark ? 'bg-[#161926] border-white/5 shadow-black/40' : 'bg-white border-slate-200 shadow-slate-100'}`}>
+        <div className={`p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border transition-all shadow-xl flex flex-col justify-between ${isDark ? 'bg-[#161926] border-white/5 shadow-black/40' : 'bg-white border-slate-200 shadow-slate-100'}`}>
             <div className="flex justify-between items-start w-full">
                 <div className="min-w-0">
-                    <p className={`text-[10px] font-black uppercase opacity-30 tracking-widest mb-1.5 ${isDark ? 'text-white' : 'text-slate-500'}`}>{title}</p>
-                    <div className={`text-2xl md:text-3xl font-black tracking-tighter truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                        {value}<span className="text-sm ml-1 opacity-20">{unit}</span>
+                    <p className={`text-[9px] sm:text-[10px] font-black uppercase opacity-30 tracking-widest mb-1.5 ${isDark ? 'text-white' : 'text-slate-500'}`}>{title}</p>
+                    <div className={`text-xl sm:text-2xl md:text-3xl font-black tracking-tighter truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        {value}<span className="text-[10px] sm:text-sm ml-1 opacity-20">{unit}</span>
                     </div>
                 </div>
-                <div className={`flex-shrink-0 p-4 rounded-2xl ml-4 flex items-center justify-center shadow-inner ${isDark ? 'bg-white/5' : 'bg-slate-50'}`} style={{color}}>
+                <div className={`hidden sm:flex flex-shrink-0 p-3 sm:p-4 rounded-2xl ml-2 sm:ml-4 items-center justify-center shadow-inner ${isDark ? 'bg-white/5' : 'bg-slate-50'}`} style={{color}}>
                     {icon}
                 </div>
             </div>
-            <p className="text-[10px] font-bold opacity-30 mt-4 flex items-center uppercase tracking-tight">
-                <ChevronRight size={14} className="mr-1 text-indigo-500 flex-shrink-0" /> {sub}
+            <p className="text-[9px] sm:text-[10px] font-bold opacity-30 mt-3 sm:mt-4 flex items-center uppercase tracking-tight">
+                <ChevronRight size={14} className="mr-1 text-indigo-500 flex-shrink-0 hidden sm:block" /> {sub}
             </p>
         </div>
     );

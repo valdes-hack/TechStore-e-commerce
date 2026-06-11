@@ -722,6 +722,31 @@ ALTER TABLE `sav_tickets`
 ALTER TABLE `wishlists`
   ADD CONSTRAINT `wishlists_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `wishlists_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `app_settings`
+--
+
+DROP TABLE IF EXISTS `app_settings`;
+CREATE TABLE IF NOT EXISTS `app_settings` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `site_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'TechStore',
+  `contact_email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'contact@techstore.cm',
+  `contact_phone` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '+237 600 000 000',
+  `contact_address` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Douala, Cameroun',
+  `logo_url` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Paramètres de l\'application';
+
+--
+-- Déchargement des données de la table `app_settings`
+--
+
+INSERT INTO `app_settings` (`id`, `site_name`, `contact_email`, `contact_phone`, `contact_address`, `logo_url`) VALUES
+(1, 'TechStore', 'contact@techstore.cm', '+237 600 000 000', 'Douala, Cameroun', NULL);
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

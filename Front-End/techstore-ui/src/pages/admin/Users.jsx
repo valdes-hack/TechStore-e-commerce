@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../../context/ThemeContext';
 import AdminLayout from '../../components/admin/AdminLayout';
 import AdminFilter from '../../components/admin/AdminFilter';
 import AdminService from '../../services/admin.service';
@@ -15,10 +16,7 @@ const AdminUsers = () => {
     const [loading, setLoading] = useState(true);
     
     // 2. ÉTAT DU THÈME (Persistance)
-    const [theme, setTheme] = useState(() => {
-        const savedTheme = localStorage.getItem('admin_hub_theme');
-        return savedTheme ? savedTheme : 'light';
-    });
+    const { theme, toggleTheme } = useTheme();
 
     // 3. ÉTATS DU FORMULAIRE ET FILTRES
     const [showForm, setShowForm] = useState(false);
@@ -28,8 +26,6 @@ const AdminUsers = () => {
         selCat: "Tous", // Utilisé pour le Rôle
         dispo: "Tous"   // Utilisé pour l'état (Vérifié/Bloqué)
     });
-
-    const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
     const loadUsers = async () => {
         setLoading(true);
@@ -48,7 +44,7 @@ const AdminUsers = () => {
     useEffect(() => { loadUsers(); }, []);
 
     useEffect(() => {
-        localStorage.setItem('admin_hub_theme', theme);
+        
     }, [theme]);
 
     // ⚡ FILTRAGE INSTANTANÉ (C'EST ICI QUE J'AI CORRIGÉ LA RECHERCHE ✨)

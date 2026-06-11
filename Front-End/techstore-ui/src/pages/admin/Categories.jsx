@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../../context/ThemeContext';
 import AdminLayout from '../../components/admin/AdminLayout';
 import AdminService from '../../services/admin.service';
 import CategoryForm from './CategoryForm'; 
@@ -23,7 +24,7 @@ const Categories = () => {
     const [selectedCategory, setSelectedCategory] = useState(null);
 
     // --- ÉTAT DU THÈME ---
-    const [theme, setTheme] = useState(() => localStorage.getItem('admin_hub_theme') || 'dark');
+    const { theme, toggleTheme } = useTheme();
 
     // --- ÉTAT DES FILTRES DYNAMIQUES ---
     const [filters, setFilters] = useState({
@@ -34,12 +35,6 @@ const Categories = () => {
 
     // Options pour le sélecteur de hiérarchie dans le filtre
     const hierarchyOptions = ["Tous", "Racine", "Sous-rayon"];
-
-    const toggleTheme = () => {
-        const newTheme = theme === 'dark' ? 'light' : 'dark';
-        setTheme(newTheme);
-        localStorage.setItem('admin_hub_theme', newTheme);
-    };
 
     // --- LOGIQUE D'ICÔNES PAR DÉFAUT ---
     const getIconBySlug = (slug) => {
@@ -185,7 +180,7 @@ const Categories = () => {
                                         }`}>
                                             {c.iconUrl ? (
                                                 <img 
-                                                    src={c.iconUrl.startsWith('http') ? c.iconUrl : `http://localhost:8080/uploads/categories/${c.iconUrl}`} 
+                                                    src={c.iconUrl.startsWith('http') ? c.iconUrl : `${import.meta.env.VITE_API_URL}/uploads/categories/${c.iconUrl}`} 
                                                     className="w-full h-full object-cover p-2 rounded-[2.2rem]" 
                                                     alt={c.name}
                                                 />

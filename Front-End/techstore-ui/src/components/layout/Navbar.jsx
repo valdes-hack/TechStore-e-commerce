@@ -1,38 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, ShoppingBag, User, Menu, X, ChevronDown, Package, Sun, Moon, Bell } from 'lucide-react';
+import { Search, ShoppingBag, User, Menu, X, ChevronDown, Package, Sun, Moon, Bell, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import ProductService from '../../services/product.service';
 import NotificationBell from '../admin/NotificationBell';
+import { useTheme } from '../../context/ThemeContext';
+import { useAppContext } from '../../context/AppContext';
+import SpotlightSearch from './SpotlightSearch';
 
 const Navbar = () => {
     const [isScrolled, setIsScrolled] = useState(false);
     const [isProductsOpen, setIsProductsOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [categories, setCategories] = useState([]);
     
     const { isAuthenticated, user, isAdmin } = useAuth();
     const { setIsOpen, cart } = useCart();
+    const { settings } = useAppContext();
     const navigate = useNavigate();
     const location = useLocation();
 
-    // --- SYNCHRONISATION DU THÈME (MÊME LOGIQUE QUE ADMIN) ---
-    const [theme, setTheme] = useState(() => localStorage.getItem('admin_hub_theme') || 'dark');
-
-    useEffect(() => {
-        const root = window.document.documentElement;
-        if (theme === 'dark') {
-            root.classList.add('dark');
-        } else {
-            root.classList.remove('dark');
-        }
-        localStorage.setItem('admin_hub_theme', theme);
-    }, [theme]);
-
-    const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
+    const { theme, toggleTheme } = useTheme();
 
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -50,23 +41,27 @@ const Navbar = () => {
         fetchCats();
     }, []);
 
-    const handleSearch = (e) => {
-        e.preventDefault();
-        if (searchQuery.trim()) {
-            navigate(`/catalog?q=${encodeURIComponent(searchQuery.trim())}`);
-            setSearchQuery('');
-            setIsMobileMenuOpen(false);
-        }
-    };
+    // Handle global keyboard shortcut Cmd+K or Ctrl+K to open search
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                setIsSearchOpen(true);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
-    // Ne pas afficher la Navbar si on est en plein écran sur un dashboard spécifique (optionnel)
-    const isDashboard = location.pathname.startsWith('/admin') && !isScrolled;
+    if (location.pathname.startsWith('/admin')) {
+        return null;
+    }
 
     return (
         <div className="fixed top-0 w-full z-[100] transition-all duration-500 px-0 md:px-6 pt-0 md:pt-4">
             <nav className={`mx-auto max-w-7xl transition-all duration-500 ${
                 isScrolled 
-                ? 'md:rounded-full bg-white/70 dark:bg-[#0b0e14]/70 backdrop-blur-xl border border-white/20 dark:border-white/5 shadow-2xl py-3 px-8' 
+                ? 'md:rounded-2xl bg-white dark:bg-[#0b0e14] border border-gray-100 dark:border-white/5 shadow-lg py-4 px-8' 
                 : 'bg-transparent py-6 px-4'
             }`}>
                 <div className="flex justify-between items-center gap-8">
@@ -74,20 +69,20 @@ const Navbar = () => {
                     {/* LOGO STYLE APPLE */}
                     <Link to="/" className="flex items-center space-x-2 shrink-0 group">
                         <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 group-hover:scale-110 transition-transform">
-                            <span className="font-black text-xl italic">T</span>
+                            <span className="font-bold text-xl">{settings?.siteName ? settings.siteName.charAt(0).toUpperCase() : 'T'}</span>
                         </div>
-                        <span className="text-xl font-black tracking-tighter text-apple-dark dark:text-white uppercase italic">
-                            TechStore
+                        <span className="text-xl font-bold text-apple-dark dark:text-white uppercase tracking-wide">
+                            {settings?.siteName || 'TechStore'}
                         </span>
                     </Link>
 
                     {/* MENU CENTRAL - NAVIGATION */}
-                    <div className="hidden lg:flex items-center bg-white/5 dark:bg-white/5 rounded-full px-2 border border-white/5">
-                        <Link to="/" className={`px-4 py-2 text-[12px] font-black uppercase tracking-widest transition-colors ${location.pathname === '/' ? 'text-indigo-500' : 'text-apple-dark/50 dark:text-white/40 hover:text-indigo-500'}`}>ACCUEIL</Link>
-                        <Link to="/catalog" className={`px-4 py-2 text-[12px] font-black uppercase tracking-widest transition-colors ${location.pathname === '/catalog' ? 'text-indigo-500' : 'text-apple-dark/50 dark:text-white/40 hover:text-indigo-500'}`}>BOUTIQUE</Link>
+                    <div className="hidden lg:flex items-center bg-gray-50 dark:bg-white/5 rounded-full px-2 py-1 border border-transparent dark:border-white/5">
+                        <Link to="/" className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${location.pathname === '/' ? 'text-indigo-600' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600'}`}>ACCUEIL</Link>
+                        <Link to="/catalog" className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${location.pathname === '/catalog' ? 'text-indigo-600' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600'}`}>BOUTIQUE</Link>
                         
                         <div className="relative group" onMouseEnter={() => setIsProductsOpen(true)} onMouseLeave={() => setIsProductsOpen(false)}>
-                            <button className="flex items-center space-x-1 px-4 py-2 text-[12px] font-black uppercase tracking-widest text-apple-dark/50 dark:text-white/40 group-hover:text-indigo-500 transition-colors">
+                            <button className="flex items-center space-x-1 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">
                                 <span>RAYONS</span>
                                 <ChevronDown size={14} className={`transition-transform duration-300 ${isProductsOpen ? 'rotate-180' : ''}`} />
                             </button>
@@ -112,19 +107,18 @@ const Navbar = () => {
                         </div>
                     </div>
 
-                    {/* RECHERCHE - DESIGN PREMIUM */}
-                    <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-sm relative group">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-apple-dark/30 dark:text-white/20 group-focus-within:text-indigo-500 transition-colors">
+                    {/* RECHERCHE - SPOTLIGHT */}
+                    <div className="hidden md:flex flex-1 max-w-sm relative group cursor-pointer" onClick={() => setIsSearchOpen(true)}>
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-apple-dark/30 dark:text-white/20 group-hover:text-indigo-500 transition-colors">
                             <Search size={18} />
                         </div>
-                        <input 
-                            type="text" 
-                            placeholder="Recherche un modèle, une marque..." 
-                            value={searchQuery} 
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-apple-dark/5 dark:bg-white/5 border border-transparent dark:border-white/5 rounded-2xl py-3 px-12 text-xs font-bold dark:text-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none transition-all placeholder:opacity-50" 
-                        />
-                    </form>
+                        <div className="w-full bg-apple-dark/5 dark:bg-white/5 border border-transparent dark:border-white/5 rounded-2xl py-3 px-12 text-xs font-bold text-gray-400 transition-all hover:bg-apple-dark/10 dark:hover:bg-white/10 flex justify-between items-center">
+                            <span>Rechercher...</span>
+                            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest bg-white dark:bg-white/10 px-2 py-1 rounded-md shadow-sm border dark:border-white/5">
+                                <span className="text-lg leading-none">⌘</span> K
+                            </span>
+                        </div>
+                    </div>
 
                     {/* ACTIONS DROITE */}
                     <div className="flex items-center space-x-3">
@@ -133,6 +127,14 @@ const Navbar = () => {
                         <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white/5 dark:bg-white/5 hover:scale-110 transition-all text-apple-dark dark:text-white border border-white/5">
                             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} className="text-yellow-400" />}
                         </button>
+
+                        {/* ADMIN DASHBOARD LINK */}
+                        {isAdmin() && (
+                            <Link to="/admin" className="hidden sm:flex items-center space-x-2 bg-indigo-600/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 px-4 py-2.5 rounded-2xl font-bold text-xs hover:scale-105 transition-transform border border-indigo-500/10">
+                                <Settings size={16} />
+                                <span className="uppercase tracking-widest text-[10px]">Gestion</span>
+                            </Link>
+                        )}
 
                         {/* NOTIFICATIONS (VISIBLE UNIQUEMENT POUR ADMIN) */}
                         {isAdmin() && (
@@ -167,6 +169,9 @@ const Navbar = () => {
                     </div>
                 </div>
             </nav>
+
+            {/* Composant Spotlight Search Global */}
+            <SpotlightSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
         </div>
     );
 };

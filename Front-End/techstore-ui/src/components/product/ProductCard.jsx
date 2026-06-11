@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Plus, ShieldCheck } from 'lucide-react';
-import { useCart } from '../../context/CartContext'; 
+import { useCart } from '../../context/CartContext';
+import { getFullImageUrl } from '../../utils/imageUtils'; 
 
 const ProductCard = ({ product }) => {
     // 1. Branchement au cerveau du panier
@@ -9,13 +10,16 @@ const ProductCard = ({ product }) => {
 
     if (!product) return null;
 
-    // --- LOGIQUE IMAGE ---
     let displayImage = "https://images.unsplash.com/photo-1510557880182-3d4d3cba3f21?w=600"; 
+    
+    
 
-    if (product.images && product.images.length > 0) {
+    if (product.imageUrl) {
+        displayImage = getFullImageUrl(product.imageUrl);
+    } else if (product.images && product.images.length > 0) {
         const primaryImg = product.images.find(img => img.isPrimary) || product.images[0];
-        if (primaryImg.url) {
-            displayImage = primaryImg.url;
+        if (primaryImg && primaryImg.url) {
+            displayImage = getFullImageUrl(primaryImg.url);
         }
     }
 
@@ -46,8 +50,11 @@ const ProductCard = ({ product }) => {
                     <img 
                         src={displayImage} 
                         alt={product.name}
-                        className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out"
-                        onError={(e) => { e.target.src = "https://placehold.co/400?text=Produit+TechStore"; }}
+                        className="max-h-full max-w-full object-contain group-hover:scale-110 transition-transform duration-700 ease-out"
+                        onError={(e) => { 
+                            e.target.onerror = null; 
+                            e.target.src = "https://images.unsplash.com/photo-1526406915894-7bcd65f60845?w=600"; 
+                        }}
                     />
                 </div>
                 

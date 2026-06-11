@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import AdminService from '../../services/admin.service';
@@ -11,7 +12,7 @@ import { XAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } fro
 const Dashboard = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [theme, setTheme] = useState(() => localStorage.getItem('admin_hub_theme') || 'dark');
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
 
     const isDark = theme === 'dark';

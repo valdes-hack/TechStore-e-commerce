@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,6 +32,9 @@ public class AdminProductController {
     private final ProductService productService;
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
+
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     /**
      * 1. LISTER TOUS LES PRODUITS (ADMIN)
@@ -71,7 +75,12 @@ public class AdminProductController {
 
             if (files != null && !files.isEmpty()) {
                 List<String> imageUrls = files.stream()
-                        .map(file -> "http://localhost:8080/uploads/products/" + fileStorageService.storeFile(file))
+                        .map(file -> {
+                            String storedUrl = fileStorageService.storeFile(file);
+                            // Si l'URL est déjà complète (Cloudinary), l'utiliser telle quelle
+                            // Sinon, ajouter le préfixe local
+                            return storedUrl.startsWith("http") ? storedUrl : baseUrl + "/uploads/products/" + storedUrl;
+                        })
                         .collect(Collectors.toList());
                 request.setImageUrls(imageUrls);
             }
@@ -100,7 +109,16 @@ public class AdminProductController {
 
             if (files != null && !files.isEmpty()) {
                 List<String> newUrls = files.stream()
-                        .map(file -> "http://localhost:8080/uploads/products/" + fileStorageService.storeFile(file))
+                        .map(file -> {
+                            try {
+                                String storedUrl = fileStorageService.storeFile(file);
+                                // Si l'URL est déjà complète (Cloudinary), l'utiliser telle quelle
+                                // Sinon, ajouter le préfixe local
+                                return storedUrl.startsWith("http") ? storedUrl : baseUrl + "/uploads/products/" + storedUrl;
+                            } catch (Exception e) {
+                                throw new RuntimeException("Erreur lors du stockage de l'image: " + e.getMessage(), e);
+                            }
+                        })
                         .collect(Collectors.toList());
                 
                 if (request.getImageUrls() == null) request.setImageUrls(new java.util.ArrayList<>());
@@ -112,8 +130,9 @@ public class AdminProductController {
                     .status("success").code(200).message("Produit mis à jour").data(response).build());
 
         } catch (Exception e) {
-            return ResponseEntity.status(409).body(ApiResponse.<ProductResponse>builder()
-                    .status("error").code(409).message("Erreur mise à jour : " + e.getMessage()).build());
+            e.printStackTrace(); // Pour voir l'erreur complète dans les logs
+            return ResponseEntity.status(500).body(ApiResponse.<ProductResponse>builder()
+                    .status("error").code(500).message("Erreur mise à jour : " + e.getMessage()).build());
         }
     }
 

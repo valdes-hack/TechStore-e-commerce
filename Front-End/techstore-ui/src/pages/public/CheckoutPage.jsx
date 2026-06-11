@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../../context/ThemeContext';
 import { 
     CheckCircle, Loader2, ShoppingBag, Store, Truck, Navigation, 
     MessageCircle, ChevronLeft, AlertCircle, Plus, Minus, Trash2, 
@@ -22,7 +23,7 @@ const CheckoutPage = () => {
     const [isSuccess, setIsSuccess] = useState(false);
     const [deliveryMode, setDeliveryMode] = useState('delivery');
     const [step, setStep] = useState(1);
-    const [theme] = useState(() => localStorage.getItem('admin_hub_theme') || 'light');
+    const { theme, toggleTheme } = useTheme();
     const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
     const [formData, setFormData] = useState({

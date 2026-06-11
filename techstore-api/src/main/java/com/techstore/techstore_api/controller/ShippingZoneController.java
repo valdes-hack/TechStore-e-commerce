@@ -13,7 +13,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/shipping-zones")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+
 public class ShippingZoneController {
 
     private final ShippingZoneService shippingZoneService;
@@ -24,7 +24,7 @@ public class ShippingZoneController {
         return ResponseEntity.ok(ApiResponse.<List<ShippingZone>>builder()
                 .status("success")
                 .code(200)
-                .message("Zones de livraison récupérées")
+                .message("Zones de livraison rÃ©cupÃ©rÃ©es")
                 .timestamp(LocalDateTime.now())
                 .data(zones)
                 .build());

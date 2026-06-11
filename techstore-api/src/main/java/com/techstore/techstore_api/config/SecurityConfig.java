@@ -31,10 +31,10 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Bean
+   @Bean
 public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
-        // 1. Activation du CORS (réglé dans corsConfigurationSource)
+        // 1. Activation du CORS avec la bonne syntaxe ✨
         .cors(Customizer.withDefaults())
         
         // 2. Désactivation du CSRF (pour API Stateless)
@@ -47,56 +47,61 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
         .authorizeHttpRequests(auth -> auth
             // A. ACCÈS PUBLIC : SWAGGER, DOCS, ERREURS & IMAGES ✨
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/favicon.ico", "/error").permitAll()
-            // ✨ CETTE LIGNE AUTORISE L'AFFICHAGE DES PHOTOS (Produits, Profils, Catégories)
             .requestMatchers("/uploads/**").permitAll() 
 
+            // B. ACCÈS PUBLIC : LOGIQUE MÉTIER
             // B. ACCÈS PUBLIC : LOGIQUE MÉTIER (Indispensable pour le Guest Checkout)
-            .requestMatchers("/api/v1/auth/**").permitAll()
-            .requestMatchers(
-                "/api/v1/products/**", 
-                "/api/v1/categories/**", 
-                "/api/v1/shipping-zones/**", 
-                "/api/v1/orders/**", 
-                "/api/v1/cart/**"
-            ).permitAll()
+.requestMatchers("/api/v1/auth/**").permitAll()
+.requestMatchers(
+    "/api/v1/products", "/api/v1/products/**", 
+    "/api/v1/categories", "/api/v1/categories/**", 
+    "/api/v1/shipping-zones", "/api/v1/shipping-zones/**", 
+    "/api/v1/orders", "/api/v1/orders/**", 
+    "/api/v1/cart", "/api/v1/cart/**"
+).permitAll()
             
-            // C. ACCÈS PRIVÉ : ADRESSES & PROFIL (Nécessite d'être connecté)
+            // C. ACCÈS PUBLIC : REVIEWS & SETTINGS
+            .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/settings").permitAll()
+            
+            // D. ACCÈS PRIVÉ : ADRESSES & PROFIL
             .requestMatchers("/api/v1/addresses/**").authenticated()
             .requestMatchers("/api/v1/users/me").authenticated()
             
-            // D. ACCÈS PRIVÉ : ADMINISTRATION (Seulement pour les ADMIN)
+            // E. ACCÈS PRIVÉ : ADMINISTRATION
             .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-            .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
             
-            // E. TOUT LE RESTE nécessite une authentification
+            // F. TOUT LE RESTE nécessite une authentification
             .anyRequest().authenticated()
-        );
+        )
+        
+        // 5. Ajout du filtre JWT avant le filtre standard
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-    // Ajout du filtre JWT avant le filtre standard
-    http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-    
     return http.build();
 }
+
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        
-        // Autorise le Front-end React
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        
-        // Autorise tous les Headers (dont X-Session-Id et Authorization)
-        configuration.setAllowedHeaders(List.of("*")); 
-        
-        // Expose les headers pour que React puisse les lire
-        configuration.setExposedHeaders(Arrays.asList("X-Session-Id", "Authorization"));
-        
-        configuration.setAllowCredentials(true);
-        
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    
+    // On autorise localhost, ton domaine principal Vercel, ET tous les sous-domaines de tes déploiements Vercel ✨
+    configuration.setAllowedOriginPatterns(List.of(
+        "http://localhost:5173",
+        "https://techelectronique-frond-end.vercel.app",
+        "https://techelectronique-front-end.vercel.app",
+        "https://*-valdes-hacks-projects.vercel.app" // Autorise toutes les URLs de test Vercel
+    ));
+    
+    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+    configuration.setAllowedHeaders(List.of("*")); 
+    configuration.setExposedHeaders(Arrays.asList("X-Session-Id", "Authorization"));
+    configuration.setAllowCredentials(true);
+    
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
 
     @Bean
     public PasswordEncoder passwordEncoder() {

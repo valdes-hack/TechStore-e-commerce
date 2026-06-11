@@ -1,0 +1,7 @@
+# Secrets
+compte_valdes.php
+insert_admin.php
+nouveau_script_admin.php
+
+# Environment variables with secrets
+**/application.properties.local

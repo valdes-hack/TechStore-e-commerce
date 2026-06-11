@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import AdminFilter from '../../components/admin/AdminFilter';
@@ -20,7 +21,7 @@ const AdminOrders = () => {
     
     const navigate = useNavigate();
     const invoiceRef = useRef();
-    const [theme] = useState(() => localStorage.getItem('admin_hub_theme') || 'dark');
+    const { theme, toggleTheme } = useTheme();
     const isDark = theme === 'dark';
 
     const [filters, setFilters] = useState({ searchTerm: "", selCat: "Tous", dispo: "Tous" });
@@ -106,7 +107,7 @@ const AdminOrders = () => {
                 </div>
 
                 {/* TABLEAU PRINCIPAL */}
-                <div className={`flex-1 rounded-[2.5rem] border overflow-hidden flex flex-col ${isDark ? 'bg-[#161926] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+                <div className={`w-full max-w-full rounded-[2.5rem] border flex flex-col ${isDark ? 'bg-[#161926] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left min-w-[1000px] border-collapse">
                             <thead className={`sticky top-0 z-20 ${isDark ? 'bg-[#1a1e2e]' : 'bg-gray-50'} text-[11px] font-black uppercase tracking-widest text-slate-500`}>
