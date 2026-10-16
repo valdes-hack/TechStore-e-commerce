@@ -1,5 +1,9 @@
 import api from '../api/axiosConfig'; // On importe 'api'
 
+// Cache mémoire client (évite les requêtes réseau répétitives lors de la navigation)
+let categoriesCache = null;
+let groupedCategoriesCache = null;
+
 const ProductService = {
     // 1. Lister tous les produits (Paginé)
     getAll: async (page = 0, size = 12) => {
@@ -51,25 +55,37 @@ const ProductService = {
         }
     },
 
-    // 5. Récupérer toutes les catégories pour la Navbar
-    getCategories: async () => {
+    // 5. Récupérer toutes les catégories pour la Navbar (Avec cache mémoire client)
+    getCategories: async (forceRefresh = false) => {
+        if (!forceRefresh && categoriesCache) {
+            return categoriesCache;
+        }
         try {
             const response = await api.get('categories');
+            if (response.data && response.data.status === 'success') {
+                categoriesCache = response.data;
+            }
             return response.data;
         } catch (error) {
             console.error("Erreur getCategories", error);
-            return { status: 'error', data: [] }; 
+            return categoriesCache || { status: 'error', data: [] }; 
         }
     },
 
-    // Récupérer les catégories avec un échantillon de produits pour l'accueil
-    getGroupedCategories: async () => {
+    // Récupérer les catégories avec un échantillon de produits pour l'accueil (Avec cache mémoire client)
+    getGroupedCategories: async (forceRefresh = false) => {
+        if (!forceRefresh && groupedCategoriesCache) {
+            return groupedCategoriesCache;
+        }
         try {
             const response = await api.get('categories/grouped-products');
+            if (response.data && response.data.status === 'success') {
+                groupedCategoriesCache = response.data;
+            }
             return response.data;
         } catch (error) {
             console.error("Erreur getGroupedCategories", error);
-            return { status: 'error', data: [] };
+            return groupedCategoriesCache || { status: 'error', data: [] };
         }
     },
     
@@ -90,6 +106,24 @@ postReview: async (reviewData) => {
 postGuestReview: async (reviewData, token) => {
     const res = await api.post(`/reviews/guest?token=${token}`, reviewData);
     return res.data;
+},
+
+// 6. Récupérer les produits en promotion (discountPrice > 0)
+getPromotions: async () => {
+    try {
+        const response = await api.get('products', {
+            params: { page: 0, size: 100 }
+        });
+        if (response.data && response.data.status === 'success') {
+            const list = response.data.data?.content || response.data.data || [];
+            const promoList = list.filter(p => p.discountPrice && Number(p.discountPrice) > 0 && Number(p.discountPrice) < Number(p.basePrice));
+            return { status: 'success', data: promoList };
+        }
+        return response.data;
+    } catch (error) {
+        console.error("Erreur getPromotions", error);
+        throw error;
+    }
 }
 
 };

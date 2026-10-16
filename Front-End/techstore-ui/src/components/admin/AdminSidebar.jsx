@@ -2,7 +2,7 @@ import React from 'react';
 import { 
     LayoutDashboard, Box, Users, ShoppingCart, 
     BarChart3, Settings, Sun, Moon, Zap, History,
-    ChevronLeft, ChevronRight, X, Layers, Truck, PackagePlus, LogOut, Globe 
+    ChevronLeft, ChevronRight, X, Layers, Truck, PackagePlus, LogOut, Globe, Flame
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
@@ -22,6 +22,7 @@ const AdminSidebar = ({ width, setWidth, isMobileOpen, setIsMobileOpen }) => {
     const menuItems = [
         { icon: <LayoutDashboard size={22}/>, label: "Dashboard", path: "/admin" },
         { icon: <Box size={22}/>, label: "Produits", path: "/admin/products" },
+        { icon: <Flame size={22} className="text-red-500"/>, label: "Promotions", path: "/admin/promotions" },
         { icon: <PackagePlus size={22}/>, label: "Ravitaillement", path: "/admin/stock" },
         { icon: <Layers size={22}/>, label: "Catégories", path: "/admin/categories" },
         { icon: <Truck size={22}/>, label: "Fournisseurs", path: "/admin/suppliers" },
@@ -48,7 +49,7 @@ const AdminSidebar = ({ width, setWidth, isMobileOpen, setIsMobileOpen }) => {
                 />
             )}
 
-            <aside style={{ width: `${width}px` }} className={sidebarClasses}>
+            <aside style={{ width: `${width}px` }} className={`${sidebarClasses} flex flex-col`}>
                 
                 {/* Bouton Rétractation (Desktop) */}
                 <button 
@@ -61,13 +62,18 @@ const AdminSidebar = ({ width, setWidth, isMobileOpen, setIsMobileOpen }) => {
                 {/* LOGO */}
                 <div className={`p-6 flex items-center justify-between ${isCollapsed ? 'lg:justify-center' : 'space-x-3'}`}>
                     <div className="flex items-center space-x-3">
-                        <div className="bg-[#6366f1] p-2 rounded-xl text-white shadow-lg shadow-indigo-500/20">
-                            <Zap size={22} fill="white" />
+                        <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-white/10 p-0.5 shadow-lg shadow-indigo-500/20">
+                            <img src="/logo.png" alt="PEOC" className="w-full h-full object-contain rounded-lg" onError={(e) => { e.target.style.display = 'none'; }} />
                         </div>
                         {(!isCollapsed || isMobileOpen) && (
-                            <span className={`text-xl font-black tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-                                AdminHub
-                            </span>
+                            <div className="flex flex-col">
+                                <span className={`text-lg font-black tracking-tighter leading-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+                                    PEOC
+                                </span>
+                                <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest leading-none mt-1">
+                                    Administration
+                                </span>
+                            </div>
                         )}
                     </div>
                     <button onClick={() => setIsMobileOpen(false)} className="lg:hidden p-2 opacity-50"><X size={20}/></button>

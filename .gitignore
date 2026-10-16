@@ -5,3 +5,6 @@ nouveau_script_admin.php
 
 # Environment variables with secrets
 **/application.properties.local
+*.log
+node_modules/
+target/

@@ -1,38 +1,64 @@
 package com.techstore.techstore_api.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "product_variants")
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
-@ToString(exclude = "product")
 public class ProductVariant {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @Column(nullable = false, unique = true)
+    private String skuVariant;
+
+    @Column(nullable = false)
+    private BigDecimal price;
+
+    @Column(nullable = false)
+    private Integer stockQty;
+
+    @Column(columnDefinition = "JSON")
+    private String attributes; // {"Couleur": "Noir", "Taille": "M"}
+
+    @Column
+    @Builder.Default
+    private Boolean isActive = true;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
-    @JsonBackReference // Empêche de remonter vers le produit
     private Product product;
 
-    @Column(unique = true, nullable = false)
-    private String skuVariant;
-    private BigDecimal price;
-    private BigDecimal costPrice;
-    private Integer stockQty = 0;
-    
-    @Column(columnDefinition = "LONGTEXT")
-    private String attributes;
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    // Alias method for service compatibility
+    public void setCostPrice(BigDecimal costPrice) {
+        // Cost price is not stored in variant, but we accept it for compatibility
+    }
+
+    public BigDecimal getCostPrice() {
+        return null; // Cost price is stored in Product, not Variant
+    }
 }

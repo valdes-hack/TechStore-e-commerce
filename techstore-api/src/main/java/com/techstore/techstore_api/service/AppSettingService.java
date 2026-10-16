@@ -3,6 +3,8 @@ package com.techstore.techstore_api.service;
 import com.techstore.techstore_api.model.AppSetting;
 import com.techstore.techstore_api.repository.AppSettingRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,14 +14,42 @@ public class AppSettingService {
 
     private final AppSettingRepository appSettingRepository;
 
+    @Transactional
+    @Cacheable("settings")
     public AppSetting getSettings() {
-        return appSettingRepository.findAll().stream().findFirst().orElseGet(() -> {
+        AppSetting settings = appSettingRepository.findAll().stream().findFirst().orElseGet(() -> {
             AppSetting defaultSettings = new AppSetting();
             return appSettingRepository.save(defaultSettings);
         });
+
+        // Auto-migration des données résiduelles (TechStore, ELECTRONIQUE) vers PEOC
+        boolean modified = false;
+        if (settings.getSiteName() == null || 
+            settings.getSiteName().toUpperCase().contains("ELECTRONIQUE") || 
+            settings.getSiteName().equalsIgnoreCase("TechStore")) {
+            settings.setSiteName("PEOC (Petit Éleveur de l'Ouest Cameroun)");
+            modified = true;
+        }
+        if (settings.getContactEmail() == null || settings.getContactEmail().toLowerCase().contains("techstore")) {
+            settings.setContactEmail("contact@peoc.cm");
+            modified = true;
+        }
+        if (settings.getContactAddress() == null || settings.getContactAddress().toLowerCase().contains("douala")) {
+            settings.setContactAddress("Bafoussam, Ouest - Cameroun");
+            modified = true;
+        }
+        if (settings.getContactPhone() == null || settings.getContactPhone().equals("+237 600 000 000")) {
+            settings.setContactPhone("+237 686 669 222");
+            modified = true;
+        }
+        if (modified) {
+            settings = appSettingRepository.save(settings);
+        }
+        return settings;
     }
 
     @Transactional
+    @CacheEvict(value = "settings", allEntries = true)
     public AppSetting updateSettings(AppSetting newSettings) {
         AppSetting current = getSettings();
         current.setSiteName(newSettings.getSiteName());
@@ -29,6 +59,18 @@ public class AppSettingService {
         if (newSettings.getLogoUrl() != null && !newSettings.getLogoUrl().isEmpty()) {
             current.setLogoUrl(newSettings.getLogoUrl());
         }
+        if (newSettings.getHeroImageUrl() != null && !newSettings.getHeroImageUrl().isEmpty()) {
+            current.setHeroImageUrl(newSettings.getHeroImageUrl());
+        }
+        if (newSettings.getHeroImagesUrls() != null) {
+            if (current.getHeroImagesUrls() == null) {
+                current.setHeroImagesUrls(new java.util.ArrayList<>());
+            }
+            current.getHeroImagesUrls().clear();
+            current.getHeroImagesUrls().addAll(newSettings.getHeroImagesUrls());
+        }
+        current.setHeroVideoUrl(newSettings.getHeroVideoUrl());
+
         return appSettingRepository.save(current);
     }
 }

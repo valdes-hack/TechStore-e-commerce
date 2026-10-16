@@ -19,23 +19,31 @@ public class AppSetting {
 
     @Column(nullable = false)
     @Builder.Default
-    private String siteName = "TechStore";
+    private String siteName = "PEOC (Petit Éleveur de l'Ouest Cameroun)";
 
     @Column(nullable = false)
     @Builder.Default
-    private String contactEmail = "contact@techstore.cm";
+    private String contactEmail = "contact@peoc.cm";
 
     @Column(nullable = false)
     @Builder.Default
-    private String contactPhone = "+237 600 000 000";
+    private String contactPhone = "+237 686 669 222";
 
     @Column(nullable = false)
     @Builder.Default
-    private String contactAddress = "Douala, Cameroun";
+    private String contactAddress = "Bafoussam, Ouest - Cameroun";
 
     @Column(length = 1000)
     private String logoUrl;
 
     @Column(length = 1000)
     private String heroImageUrl;
+
+    @jakarta.persistence.Convert(converter = com.techstore.techstore_api.util.StringListConverter.class)
+    @Column(name = "hero_images_urls", columnDefinition = "TEXT")
+    @Builder.Default
+    private java.util.List<String> heroImagesUrls = new java.util.ArrayList<>();
+
+    @Column(length = 1000)
+    private String heroVideoUrl;
 }
