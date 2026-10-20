@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     X, Save, Image as ImageIcon, Trash2, FileUp, Loader2, Plus, 
-    Layers, Tag, ChevronDown, ChevronUp, AlertCircle
+    Layers, Tag, ChevronDown, ChevronUp, AlertCircle, Lock
 } from 'lucide-react';
 import AdminService from '../../services/admin.service';
 import Input from '../../components/common/Input';
 import { getFullImageUrl } from '../../utils/imageUtils';
+import { useStockConfig } from '../../context/StockConfigContext';
 
 const slugify = (text) => {
     return String(text || '')
@@ -24,6 +25,7 @@ const SPEC_PRESETS = [
 
 const ProductForm = ({ product, onClose, onSave, theme }) => {
     const isDark = theme === 'dark';
+    const { stockConfig } = useStockConfig();
     const [submitting, setSubmitting] = useState(false);
     const [categories, setCategories] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
@@ -149,7 +151,9 @@ const ProductForm = ({ product, onClose, onSave, theme }) => {
 
         // Prix de la variante : valeur saisie ou prix de base
         const finalPrice = varInput.price !== '' ? parseFloat(varInput.price) : (parseFloat(formData.basePrice) || 0);
-        const finalStock = varInput.stockQty !== '' ? parseInt(varInput.stockQty) : 0;
+        const finalStock = stockConfig.manageStockDirectly 
+            ? (varInput.stockQty !== '' ? parseInt(varInput.stockQty) : 0)
+            : 0;
 
         // SKU variante auto-généré
         const baseSku = formData.sku || slugify(formData.name) || 'PROD';
@@ -445,13 +449,29 @@ const ProductForm = ({ product, onClose, onSave, theme }) => {
 
                             {/* Stock global si aucune variante */}
                             {formData.variants.length === 0 ? (
-                                <Input 
-                                    label="Stock en magasin (unités)" 
-                                    type="number" 
-                                    value={formData.stockQty} 
-                                    onChange={(e) => setFormData({...formData, stockQty: e.target.value})} 
-                                    theme={theme} 
-                                />
+                                !stockConfig.manageStockDirectly ? (
+                                    <div className={`p-4 rounded-2xl border space-y-1.5 ${isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                                                <Lock size={13} /> Stock Magasin (Verrouillé)
+                                            </span>
+                                            <span className="text-xs font-black px-2.5 py-0.5 bg-amber-500/20 text-amber-500 rounded-lg">
+                                                {formData.stockQty || 0} unité(s)
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400">
+                                            La saisie directe du stock est désactivée. Ce produit doit être approvisionné via l'onglet <strong>Ravitaillement</strong>.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <Input 
+                                        label="Stock en magasin (unités)" 
+                                        type="number" 
+                                        value={formData.stockQty} 
+                                        onChange={(e) => setFormData({...formData, stockQty: e.target.value})} 
+                                        theme={theme} 
+                                    />
+                                )
                             ) : (
                                 <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-between text-xs">
                                     <span className="text-indigo-400 font-bold">Stock total calculé (variantes) :</span>
@@ -676,13 +696,20 @@ const ProductForm = ({ product, onClose, onSave, theme }) => {
                                         />
                                     </div>
                                     <div>
-                                        <span className="text-[8px] font-black uppercase text-indigo-400 ml-1">Stock de cette déclinaison</span>
+                                        <span className="text-[8px] font-black uppercase text-indigo-400 ml-1">
+                                            Stock déclinaison {!stockConfig.manageStockDirectly && '(Verrouillé)'}
+                                        </span>
                                         <input 
-                                            type="number"
-                                            placeholder="Quantité"
-                                            value={varInput.stockQty}
+                                            type={stockConfig.manageStockDirectly ? "number" : "text"}
+                                            placeholder={stockConfig.manageStockDirectly ? "Quantité" : "0 (Via Ravitaillement)"}
+                                            disabled={!stockConfig.manageStockDirectly}
+                                            value={stockConfig.manageStockDirectly ? varInput.stockQty : '0 (Via Ravitaillement)'}
                                             onChange={e => setVarInput({...varInput, stockQty: e.target.value})}
-                                            className={`w-full p-2.5 rounded-xl text-xs font-black border outline-none ${isDark ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                            className={`w-full p-2.5 rounded-xl text-xs font-black border outline-none ${
+                                                !stockConfig.manageStockDirectly 
+                                                    ? (isDark ? 'bg-white/5 border-white/5 text-slate-500 cursor-not-allowed' : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed')
+                                                    : (isDark ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-900')
+                                            }`}
                                         />
                                     </div>
                                     <div>
@@ -763,12 +790,20 @@ const ProductForm = ({ product, onClose, onSave, theme }) => {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <span className="text-[8px] font-black uppercase text-indigo-400 ml-1">Stock</span>
+                                                        <span className="text-[8px] font-black uppercase text-indigo-400 ml-1">
+                                                            Stock {!stockConfig.manageStockDirectly && '(Verrouillé)'}
+                                                        </span>
                                                         <input 
                                                             type="number" 
+                                                            disabled={!stockConfig.manageStockDirectly}
+                                                            title={!stockConfig.manageStockDirectly ? "Stock géré uniquement par le module de ravitaillement" : "Quantité en stock"}
                                                             value={v.stockQty} 
                                                             onChange={e => updateVariantField(i, 'stockQty', e.target.value)} 
-                                                            className={`w-full p-2 rounded-xl text-[11px] font-black border outline-none ${isDark ? 'bg-black/30 border-white/5 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                            className={`w-full p-2 rounded-xl text-[11px] font-black border outline-none ${
+                                                                !stockConfig.manageStockDirectly
+                                                                    ? (isDark ? 'bg-white/5 border-white/5 text-slate-500 cursor-not-allowed' : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed')
+                                                                    : (isDark ? 'bg-black/30 border-white/5 text-white' : 'bg-slate-50 border-slate-200 text-slate-900')
+                                                            }`}
                                                         />
                                                     </div>
                                                 </div>
