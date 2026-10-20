@@ -8,7 +8,8 @@ import AdminService from '../../services/admin.service';
 import ProductForm from './ProductForm';
 import {
     Plus, Edit2, Trash2, Box, AlertTriangle, 
-    Wallet, RefreshCw, ChevronRight, Truck, Eye, EyeOff
+    Wallet, RefreshCw, ChevronRight, Truck, Eye, EyeOff,
+    X, Layers, Tag
 } from 'lucide-react';
 import { getFullImageUrl } from '../../utils/imageUtils';
 
@@ -34,8 +35,19 @@ const AdminProducts = () => {
     const [imgIdxMap, setImgIdxMap] = useState({});
     const [showForm, setShowForm] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [selectedVariantProduct, setSelectedVariantProduct] = useState(null);
 
     const isDark = theme === 'dark';
+
+    const parseAttributes = (raw) => {
+        if (!raw) return {};
+        if (typeof raw === 'object') return raw;
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return { "Détail": String(raw) };
+        }
+    };
 
     // FONCTION DE CHARGEMENT RÉACTIVE
     const loadData = async (isBackground = false) => {
@@ -251,12 +263,42 @@ const AdminProducts = () => {
                                             </span>
                                         </td>
                                         <td className={`p-6 text-center font-black ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>
-                                            {p.basePrice?.toLocaleString()} F
+                                            {p.variants && p.variants.length > 0 ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedVariantProduct(p)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30 transition-all hover:scale-105 shadow-sm"
+                                                    title="Cliquer pour voir les prix par déclinaison"
+                                                >
+                                                    <Tag size={13} />
+                                                    <span>{p.basePrice?.toLocaleString()} F</span>
+                                                    <span className="text-[10px] opacity-75">({p.variants.length} var.) ▾</span>
+                                                </button>
+                                            ) : (
+                                                <span>{p.basePrice?.toLocaleString()} F</span>
+                                            )}
                                         </td>
                                         <td className="p-6 text-center">
-                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${p.stockQty > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                                {p.stockQty || 0} UNITÉS
-                                            </span>
+                                            {p.variants && p.variants.length > 0 ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedVariantProduct(p)}
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition-all hover:scale-105 border shadow-sm ${
+                                                        p.stockQty > 0 
+                                                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20' 
+                                                            : 'bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500/20'
+                                                    }`}
+                                                    title="Cliquer pour voir le stock par déclinaison"
+                                                >
+                                                    <Box size={13} />
+                                                    <span>{p.stockQty || 0} UNITÉS</span>
+                                                    <span className="text-[9px] opacity-75">▾</span>
+                                                </button>
+                                            ) : (
+                                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${p.stockQty > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                    {p.stockQty || 0} UNITÉS
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-6 text-center">
                                             <button 
@@ -296,6 +338,118 @@ const AdminProducts = () => {
                     </div>
                 </div>
             </div>
+
+            {/* MODAL APERÇU DES DÉCLINAISONS / VARIANTES */}
+            {selectedVariantProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                    <div className={`relative w-full max-w-2xl rounded-3xl p-6 sm:p-8 border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${
+                        isDark ? 'bg-[#161926] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'
+                    }`}>
+                        {/* Header */}
+                        <div className="flex items-start justify-between pb-4 border-b border-white/10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 flex-shrink-0">
+                                    <Layers size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black italic tracking-tight">{selectedVariantProduct.name}</h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        Réf: <span className="font-mono text-indigo-400 font-bold">#{selectedVariantProduct.sku || selectedVariantProduct.id}</span>
+                                        {selectedVariantProduct.categoryName && ` • Catégorie: ${selectedVariantProduct.categoryName}`}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedVariantProduct(null)}
+                                className={`p-2 rounded-xl transition-all ${
+                                    isDark ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-800'
+                                }`}
+                                title="Fermer"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Total recap */}
+                        <div className="grid grid-cols-2 gap-3 my-4">
+                            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Prix de base</p>
+                                <p className="text-xl font-black text-indigo-400">{selectedVariantProduct.basePrice?.toLocaleString()} F</p>
+                            </div>
+                            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Stock total cumulé</p>
+                                <p className="text-xl font-black text-emerald-400">{selectedVariantProduct.stockQty || 0} Unités</p>
+                            </div>
+                        </div>
+
+                        {/* Variants table */}
+                        <div className="overflow-y-auto custom-scrollbar flex-1 -mx-2 px-2">
+                            <div className="text-xs font-black uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                                <span>Déclinaisons & Prix spécifiques ({selectedVariantProduct.variants?.length || 0})</span>
+                            </div>
+                            <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
+                                <table className="w-full text-left text-xs border-collapse">
+                                    <thead className={isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-50 text-slate-500'}>
+                                        <tr className="text-[10px] uppercase font-bold border-b border-white/5">
+                                            <th className="py-3 px-4">Attribut / Variable</th>
+                                            <th className="py-3 px-4">SKU Déclinaison</th>
+                                            <th className="py-3 px-4 text-right">Prix</th>
+                                            <th className="py-3 px-4 text-center">Stock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
+                                        {selectedVariantProduct.variants?.map((v, idx) => {
+                                            const attrs = parseAttributes(v.attributes);
+                                            const attrEntries = Object.entries(attrs);
+                                            return (
+                                                <tr key={v.id || idx} className={`${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'} transition-colors`}>
+                                                    <td className="py-3 px-4">
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {attrEntries.length > 0 ? (
+                                                                attrEntries.map(([k, val]) => (
+                                                                    <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                                                        <span className="opacity-70">{k}:</span>
+                                                                        <span>{String(val)}</span>
+                                                                    </span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-slate-400 italic">Standard</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
+                                                        {v.skuVariant || '-'}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right font-black text-indigo-400">
+                                                        {(v.price != null ? Number(v.price) : selectedVariantProduct.basePrice)?.toLocaleString()} F
+                                                    </td>
+                                                    <td className="py-3 px-4 text-center">
+                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                                                            (v.stockQty || 0) > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                                                        }`}>
+                                                            {v.stockQty || 0} en stock
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="pt-4 mt-4 border-t border-white/10 flex justify-end">
+                            <button
+                                onClick={() => setSelectedVariantProduct(null)}
+                                className="px-6 py-2.5 rounded-xl font-black text-xs uppercase bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg active:scale-95"
+                            >
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showForm && (
                 <ProductForm 
