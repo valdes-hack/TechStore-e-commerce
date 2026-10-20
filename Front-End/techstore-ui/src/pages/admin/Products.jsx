@@ -37,9 +37,11 @@ const AdminProducts = () => {
 
     const isDark = theme === 'dark';
 
-    // FONCTION DE CHARGEMENT
-    const loadData = async () => {
-        setLoading(true);
+    // FONCTION DE CHARGEMENT RÉACTIVE
+    const loadData = async (isBackground = false) => {
+        if (!isBackground && products.length === 0) {
+            setLoading(true);
+        }
         try {
             const res = await AdminService.getAdminProducts();
             if (res.status === 'success') {
@@ -109,6 +111,8 @@ const AdminProducts = () => {
     const handleDelete = async (id) => {
         const productToDelete = products.find(p => p.id === id);
         if (window.confirm(`Confirmer la suppression définitive de "${productToDelete?.name || 'ce produit'}" ?`)) {
+            // Mise à jour réactive immédiate dans l'UI
+            setProducts(prev => prev.filter(p => p.id !== id));
             try {
                 try {
                     await AdminService.hardDeleteProduct(id);
@@ -116,9 +120,10 @@ const AdminProducts = () => {
                     await AdminService.deleteProduct(id);
                 }
                 notifyAction('delete', productToDelete?.name || 'Produit', 'Supprimé du catalogue');
-                loadData();
+                loadData(true);
             } catch (err) {
                 notifyError("Erreur lors de la suppression du produit", "Erreur");
+                loadData(true);
             }
         }
     };
@@ -129,10 +134,10 @@ const AdminProducts = () => {
             return;
         }
         if (window.confirm(`⚠️ ATTENTION : Voulez-vous supprimer DÉFINITIVEMENT tous les ${products.length} produits du catalogue ?\nCette action est irréversible.`)) {
-            setLoading(true);
+            setProducts([]);
             try {
                 await AdminService.purgeProducts();
-                await loadData();
+                await loadData(true);
                 notifyAction('delete', 'Catalogue', 'Tous les produits ont été supprimés');
             } catch (e) {
                 console.error("Erreur purge globale :", e);
@@ -144,22 +149,15 @@ const AdminProducts = () => {
                             await AdminService.deleteProduct(p.id);
                         }
                     }
-                    await loadData();
+                    await loadData(true);
                     notifyAction('delete', 'Catalogue', 'Produits supprimés');
                 } catch (err2) {
                     notifyError("Erreur lors de la suppression des produits", "Erreur");
+                    loadData(true);
                 }
-            } finally {
-                setLoading(false);
             }
         }
     };
-
-    if (loading) return (
-        <div className={`h-screen flex items-center justify-center ${isDark ? 'bg-[#0b0e14]' : 'bg-slate-50'}`}>
-            <RefreshCw className="animate-spin text-indigo-500" size={32} />
-        </div>
-    );
 
     return (
         <AdminLayout 
@@ -306,16 +304,28 @@ const AdminProducts = () => {
                     onClose={() => setShowForm(false)} 
                     onSave={async (payload, files) => {
                         try {
+                            let res;
                             if (selectedProduct) {
                                 // MODIFICATION : Multipart (JSON + Fichiers)
-                                await AdminService.updateProduct(selectedProduct.id, payload, files);
+                                res = await AdminService.updateProduct(selectedProduct.id, payload, files);
                                 notifyAction('update', payload.name || 'Produit', 'Informations et prix mis à jour');
                             } else {
                                 // CRÉATION : Multipart (JSON + Fichiers)
-                                await AdminService.createProduct(payload, files);
+                                res = await AdminService.createProduct(payload, files);
                                 notifyAction('create', payload.name || 'Nouveau Produit', 'Ajouté au catalogue');
                             }
-                            loadData();
+                            
+                            // Mise à jour réactive immédiate de l'état local
+                            const savedItem = res?.data || res;
+                            if (savedItem && savedItem.id) {
+                                setProducts(prev => {
+                                    const exists = prev.some(p => p.id === savedItem.id);
+                                    if (exists) return prev.map(p => p.id === savedItem.id ? { ...p, ...savedItem } : p);
+                                    return [savedItem, ...prev];
+                                });
+                            }
+                            
+                            loadData(true);
                             setShowForm(false);
                         } catch (err) {
                             console.error(err);

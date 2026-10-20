@@ -98,9 +98,12 @@ const StockSupply = () => {
     };
 
     if (loading) return (
-        <div className="h-screen flex items-center justify-center bg-[#0b0e14]">
-            <RefreshCw className="animate-spin text-indigo-500" size={32} />
-        </div>
+        <AdminLayout theme={theme} filters={null}>
+            <div className="flex flex-col items-center justify-center h-[70vh]">
+                <RefreshCw className="animate-spin text-indigo-500 mb-4" size={32} />
+                <span className="text-xs font-bold text-slate-400">Chargement des approvisionnements...</span>
+            </div>
+        </AdminLayout>
     );
 
     return (
